@@ -1,9 +1,6 @@
-```
 # Build artifacts
 dist/
 build/
-*.js
-*.js.map
 
 # Dependencies
 node_modules/
@@ -27,4 +24,7 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
-```
+
+# Test artifacts
+/screenshots/tmp/
+/videos/tmp/
