@@ -5,17 +5,27 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "prebuild": "node scripts/check-prng-reproducibility.js",
+    "postbuild": "node scripts/measure-bundle-size.js",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "gen:assets": "tsx scripts/generate-atlas-assets.ts",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.79",
+    "get-video-duration": "^4.1.0",
     "matter-js": "^0.20.0",
     "phaser": "^3.87.0"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "^0.1.79",
     "@playwright/test": "^1.63.0",
+    "@types/matter-js": "^0.19.8",
+    "@types/node": "^26.6.2",
+    "get-video-duration": "^4.1.0",
     "playwright": "^1.63.0",
     "tsx": "^4.23.15",
     "typescript": "^5.3.0",

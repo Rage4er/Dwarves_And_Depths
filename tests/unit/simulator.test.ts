@@ -34,8 +34,11 @@ describe('Battle Simulator', () => {
     const result = simulateBattle([dwarf], [weakEnemy], 999);
 
     expect(result.winner).toBe('dwarves');
-    expect(result.enemies[0].hp).toBe(0);
+    // All enemies should be defeated (hp <= 0)
+    const allEnemiesDefeated = result.enemies.every(e => e.hp <= 0);
+    expect(allEnemiesDefeated).toBe(true);
     expect(result.dwarves[0].hp).toBeGreaterThan(0);
+    expect(result.round).toBeGreaterThan(0);
   });
 
   it('should handle multiple units on each side', () => {

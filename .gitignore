@@ -7,8 +7,7 @@ build/
 target/
 .vite/
 
-# Package manager
-package-lock.json
+# Package manager lock files (NOT package-lock.json - it should be committed)
 yarn.lock
 pnpm-lock.yaml
 

@@ -22,7 +22,7 @@ export interface BattleState {
   enemies: UnitStats[];
   round: number;
   log: string[];
-  winner: 'dwarves' | 'enemies' | null;
+  winner: 'dwarves' | 'enemies' | 'draw' | null;
 }
 
 export function createUnit(

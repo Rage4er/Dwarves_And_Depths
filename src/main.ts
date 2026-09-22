@@ -12,7 +12,7 @@ const config: Phaser.Types.Core.GameConfig = {
   scene: [],
 };
 
-const game = new Phaser.Game(config);
+new Phaser.Game(config);
 
 console.log('Dwarves & Depths - Phase 0 Bootstrap');
 console.log('Phaser version:', Phaser.VERSION);
