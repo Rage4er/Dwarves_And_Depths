@@ -1,9 +1,19 @@
+```
 # Build artifacts
+dist-tsc/
 dist/
 build/
+*.js
 
 # Dependencies
 node_modules/
+
+# TypeScript
+*.tsbuildinfo
+.cache/
+
+# Logs
+*.log
 
 # Environment
 .env
@@ -13,18 +23,15 @@ node_modules/
 # Editors
 .vscode/
 .idea/
-
-# Logs
-*.log
-
-# Temp files
-*.tmp
 *.swp
+*.swo
+*.tmp
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Test artifacts
-/screenshots/tmp/
-/videos/tmp/
+# Testing
+coverage/
+.nyc_output/
+```
