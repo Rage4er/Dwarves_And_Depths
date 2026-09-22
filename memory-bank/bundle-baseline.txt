@@ -1,0 +1,13 @@
+=== Bundle Baseline Measurement ===
+Commit: 73bff30
+Date: 2026-09-22T08:50:07+00:00
+
+Files:
+------------------------------------------------------------
+dist/assets/index-DREt1YnG.js            1444.85 KB → 332.15 KB gzip
+dist/index.html                          0.59 KB → 0.37 KB gzip
+------------------------------------------------------------
+TOTAL: 1.41 MB → 0.32 MB gzip
+
+✅ Bundle size 0.32 MB within budget 5 MB
+
