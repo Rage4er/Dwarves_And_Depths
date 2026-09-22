@@ -1,3 +1,30 @@
 ```
+# Build artifacts
+dist/
+build/
+*.js
+*.js.map
+
+# Dependencies
 node_modules/
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
 ```
