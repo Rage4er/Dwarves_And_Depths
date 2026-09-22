@@ -8,3 +8,14 @@
 **Статус:** Контракт принят. Все дальнейшие решения сверяются со стоп-фразой.
 
 ---
+
+## [2026-09-22T08:05:01Z] [MINOR] [phase-0] GitHub Pages настроен
+
+- **Scenario:** GitHub Actions
+- **Workflow:** .github/workflows/deploy.yml
+- **Target URL:** https://rage4er.github.io/dwarves_and_depths/
+- **base в vite.config.ts:** '/dwarves_and_depths/'
+- **Pages mode:** переключён на "GitHub Actions" вручную в Settings
+- **build output:** dist/index.html содержит пути /dwarves_and_depths/assets/...
+- **bundle size:** 340.12 kB gzip (бюджет < 5 MB ✅ PASS)
+

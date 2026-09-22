@@ -1,82 +1,53 @@
-```
 # Dependencies
 node_modules/
+
+# Build outputs
+dist/
+build/
+target/
+.vite/
+
+# Package manager
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # Environment
 .env
 .env.local
 .env.*
 
-# Logs and temp files
+# Logs
 *.log
-*.tmp
-
-# Editors
-.vscode/
-.idea/
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-venv/
-.venv/
-.env
-
-# Build outputs
-dist/
-build/
-target/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
-# Compression
-*.zip
-*.gz
-*.tar
-*.tgz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.zst
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.Z
-*.lz
-*.lzo
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# MyPy
-.mypy_cache/
-
-# PyTest
-.pytest_cache/
-
-# Gradle
-.gradle/
 
 # Temporary files
 *.tmp
 *.swp
 *.swo
 
-# System files
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS
 .DS_Store
 Thumbs.db
-```
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Python (if applicable)
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-selfcheck.json
