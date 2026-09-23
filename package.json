@@ -14,6 +14,8 @@
     "postbuild": "node scripts/measure-bundle.cjs"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^0.1.79",
+    "get-video-duration": "^4.1.0",
     "matter-js": "^0.20.0",
     "phaser": "^3.87.0"
   },
