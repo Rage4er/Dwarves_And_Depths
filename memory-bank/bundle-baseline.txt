@@ -1,0 +1,4 @@
+Baseline bundle (gzip): 0.32 MB / 5 MB budget
+Headroom: 4.68 MB
+Measured at: 2026-09-23T01:54:55.621Z
+Commit: 5fdfa5a
