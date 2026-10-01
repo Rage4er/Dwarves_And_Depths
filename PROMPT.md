@@ -1,17 +1,15 @@
-# Промпт-ТЗ v5.2: «Гномы и Глубины» — финальная production-версия
+# ТЗ v7.0: «Гномы и Глубины» — объединённый апдейт
 
-*Единый документ для запуска с пустой папки. Включает bootstrap, стоп-фразу, контракты index.html/package.json/architecture.md, защиту от подмены стека, и полную спецификацию игры. Исправлен `GIT_COMMIT` → `git rev-parse --short HEAD` в скрипте замера bundle. Готов к копированию в одно сообщение.*
+*Единый документ для запуска с пустой папки. Все баги v6.6 закрыты: 20 гномов, Growing Depth, финальный босс, бесконечный режим, воскрешение. v6.8: детальная генерация карты, экран карты, таблица слоёв, награды узлов, пример карты. v6.9: endReason, эпичный финал таймаута (обвал / Древний), лимиты hp_regen. v7.0: ranged-враги (e_archer_goblin, e_shaman), превью врагов без статов, карточки гномов с иконками статов, гномий шрифт имён, enemyTypes. Matter.js не используется.*
 
 ---
 
-## 0. СТОП-ФРАЗА (приоритет выше всех инструкций ниже)
+## §0. СТОП-ФРАЗА
 
 ```
-Любая замена Phaser 3 на React/Vue/Svelte/vanilla-DOM/Canvas-2D-
-как-замена-Phaser, любая замена Matter.js на CSS-анимации,
-любое удаление Playwright-теста, любое упрощение DoD —
-СЧИТАЕТСЯ ПРОВАЛОМ ФАЗЫ, независимо от того, насколько лучше
-выглядит результат.
+Замена Phaser 3 на React/Vue/Svelte/vanilla-DOM/Canvas-2D-как-
+замена-Phaser, удаление Playwright-теста, любое упрощение DoD —
+СЧИТАЕТСЯ ПРОВАЛОМ ФАЗЫ.
 
 Агент НЕ ИМЕЕТ ПРАВА принимать такое решение самостоятельно,
 даже если:
@@ -24,24 +22,24 @@
 При возникновении сомнения — STOP, defects.md, предложить вариант
 БЕЗ смены стека, ждать следующей инструкции.
 
-Единственное допустимое отклонение — зафиксированное в defects.md
-с обоснованием и предложенным решением без смены базового стека.
+Matter.js не используется. Защита от его «замены» не требуется.
+Единственное допустимое отклонение — зафиксированное в defects.md.
 ```
 
 ---
 
-## 0.1. Роль и контекст
+## §0.1. Роль и контекст
 
 **Роль:** Автономный ИИ-агент GameDev (full-stack).
 **Вход:** пустая папка + этот документ + доступ к ФС/терминалу/браузеру.
 **Ограничения:**
-- Без вопросов к пользователю. Все развилки решаются агентом по правилам этого документа, решение фиксируется в defects.md.
+- Без вопросов к пользователю. Решения фиксируются в defects.md.
 - Без остановки до состояния «играбельно от начала до конца».
-- Всё тестируется автоматически (headless + скрины + видео).
+- Всё тестируется автоматически.
 
 ---
 
-## 0.2. Bootstrap (первые 60 секунд)
+## §0.2. Bootstrap (первые 60 секунд)
 
 Агент выполняет **строго в этом порядке**, до чтения §1:
 
@@ -49,7 +47,7 @@
 1. Проверить окружение:
      node --version    (требуется ≥ 20.x)
      npm --version     (требуется ≥ 10.x)
-     git --version     (если нет — использовать fallback)
+     git --version     (если нет — fallback tar)
    Записать версии в /memory-bank/tech-stack.md.
 
 2. Если git доступен:
@@ -79,181 +77,174 @@
      git commit -m "bootstrap: empty skeleton"
      git tag phase-0-bootstrap
 
-7. Создать PROMPT.md — скопировать сюда этот документ целиком
-   (self-reference для будущих сессий агента).
+7. Создать PROMPT.md — скопировать сюда этот документ целиком.
 
-8. Создать architecture.md по контракту §0.4 (сначала — скелет,
-   заполнится деталями на Фазе 1).
+8. Создать architecture.md по контракту §0.4.
 
 9. Создать memory-bank/ по шаблонам §0.5.
 
-10. Только после этого — ШАГ 0 Фазы 1 (§8): npm install phaser matter-js,
+10. Только после этого — ШАГ 0 Фазы 1 (§8): npm install phaser,
     замер bundle baseline.
-
-Если git недоступен:
-  - Пропустить 2, 6.
-  - Создать /checkpoints/.
-  - Зафиксировать в defects.md: "git unavailable, using tar fallback".
-Если npm install падает по сети:
-  - Записать в defects.md, ОСТАНОВИТЬСЯ.
-  - Предложить вариант БЕЗ смены стека (offline cache, mirror registry).
-  - Не менять стек (см. §0 стоп-фраза).
 ```
+
+**Если git недоступен:** пропустить 2, 6, создать `/checkpoints/`.
+**Если npm install падает:** записать в defects.md, ОСТАНОВИТЬСЯ.
 
 ---
 
-## 0.3. Чекпоинты
+## §0.3. Чекпоинты
 
 ```
-Чекпоинт = git commit + tag, зафиксированный сразу после приёмки фазы.
+Чекпоинт = git commit + tag после приёмки фазы.
 
 Перед началом фазы N+1:
   git add -A && git commit -m "phase-N accepted"
   git tag phase-N-accepted
 
-При провале приёмки фазы N+1:
+При провале приёмки:
   git stash push -u -m "phase-(N+1) failed attempt"
   git reset --hard phase-N-accepted
-  (stash сохраняет наработки для анализа, дерево возвращается к чекпоинту)
 
-Если git недоступен — fallback: tar-архив /src + /memory-bank
-в /checkpoints/phase-N.tar.gz перед стартом фазы N+1.
-Откат = распаковка поверх текущего состояния с заменой.
-После создания архива проверить целостность:
+Fallback (если git недоступен): tar-архив /src + /memory-bank
+в /checkpoints/phase-N.tar.gz. Проверка:
   tar -tzf /checkpoints/phase-N.tar.gz > /dev/null
-  if exit code != 0 → FAIL, log в defects.md, повторить создание.
-Механизм фиксируется один раз в architecture.md на Фазе 1.
 ```
 
 ---
 
-## 0.4. Контракт architecture.md
+## §0.4. Контракт architecture.md
 
 ```
 architecture.md обязательно содержит:
 
-1. Список модулей из §2.2 и их публичные экспорты:
-     - имя модуля
-     - сигнатуры функций/классов, которые он предоставляет
-     - зависимости (что импортирует)
+1. Список модулей из §2.2 и их публичные экспорты.
 
-2. Направленный граф зависимостей между модулями (без циклов).
-   Особое правило: /src/battle/simulator.ts НЕ импортирует
-   Phaser, Matter.js, DOM — это контрактное ограничение (§3.1.7).
+2. Направленный граф зависимостей (без циклов).
+   Особое правило: /src/battle/simulator.ts НЕ импортирует 
+   Phaser, DOM API (§3.1.7).
 
-3. Механизм чекпоинтов (§0.3): git или tar — что выбрано и почему.
+3. Механизм чекпоинтов (§0.3): git или tar.
 
-4. Точку входа (src/main.ts) и её связи с Phaser.Game.
+4. Точку входа (src/main.ts) + связи с Phaser.Game.
 
-5. Список всех Phaser Scenes с зонами ответственности.
+5. Список всех Phaser Scenes (9 экранов §4).
 
-6. Явное подтверждение фиксированного стека (§2.1):
-   Phaser 3, Matter.js, никакого React/Vue/другого UI-фреймворка.
+6. Явное подтверждение стека (§2.1): Phaser 3, Phaser tweens,
+   никакого React/Vue.
 
-Без всех 6 пунктов architecture.md не принимается на Фазе 1.
+Без всех 6 пунктов architecture.md не принимается.
 ```
 
 ---
 
-## 0.5. Контракт memory-bank/
+## §0.5. Контракт memory-bank/
 
 ```
-Все файлы — markdown, обновляются append-only (не перезапись):
+Все файлы — markdown, append-only:
 
-  tech-stack.md
-    - Версии node/npm/git/phaser/matter на старте
-    - Все последующие изменения (с причиной)
-
-  progress.md
-    - Журнал: [timestamp] phase-N [status]
-    - Ссылки на скрины и хеш коммита для каждой фазы
-
-  defects.md
-    - Журнал отклонений: [timestamp] [severity] [phase]
-    - Описание + обоснование + решение
-    - Формат severity: BLOCKER | CRITICAL | MEDIUM | MINOR
-
-  implementation-plan.md
-    - Текущий план на 3 фазы вперёд
-    - Обновляется в начале каждой фазы
-
-  game-design-document.md
-    - Выжимка из §1, §3, §6 этого ТЗ
-    - Для быстрой справки без перечитывания всего ТЗ
-
-  bundle-baseline.txt
-    - Формат: "Baseline bundle (gzip): X.XX MB / 5 MB budget"
-              + "Headroom: Y.YY MB"
-              + "Measured at: <ISO timestamp>"
-              + "Commit: <short hash>"
-    - Создаётся на Фазе 1 (ШАГ 0, §8) Node-скриптом замера
-    - Обновляется на Фазе 7 финальным замером
-    - При превышении бюджета (> 5 MB gzip):
-        * запись в defects.md с severity BLOCKER
-        * STOP фазы по §0 (стоп-фраза)
-        * предложить 1–2 варианта без смены стека
+  tech-stack.md         — версии node/npm/git/phaser
+  progress.md           — журнал [timestamp] phase-N [status]
+  defects.md            — [timestamp] [severity] [phase] описание
+  implementation-plan.md — план на 3 фазы вперёд
+  game-design-document.md — выжимка §1, §3, §6
+  bundle-baseline.txt   — "Baseline bundle (gzip): X.XX MB / 5 MB"
+                          + Headroom + Measured at + Commit
 ```
 
 ---
 
-## 0.6. Цикл работы
+## §0.6. Цикл работы
 
 ```
-1. Прочитать ТЗ (этот документ).
-2. Выполнить §0.2 (bootstrap) — до чтения §1.
-3. Создать architecture.md (§0.4), memory-bank (§0.5).
-4. ШАГ 0 Фазы 1 (§8) — проверка бюджета бандла ДО написания
-   кода фич.
-5. Для каждой фазы (§8):
-     реализация → unit-тест → Playwright-сценарий →
-     скриншот → объективный чеклист → git-чекпоинт →
-     запись в progress.md.
-6. Фаза N+1 не начинается, пока фаза N не принята.
+1. Прочитать ТЗ.
+2. §0.2 bootstrap.
+3. Создать architecture.md, memory-bank.
+4. ШАГ 0 Фазы 1 — замер bundle ДО кода фич.
+5. Для каждой фазы: реализация → unit-тест → Playwright →
+   скриншот → чеклист UI → git-чекпоинт → progress.md.
+6. Фаза N+1 не начинается без приёмки N.
 ```
 
 ---
 
-## 1. КОНЦЕПЦИЯ
+## §1. КОНЦЕПЦИЯ
 
 - **Название:** «Гномы и Глубины» (Dwarves & Depths)
-- **Жанр:** Single-player Idle Roguelite Auto Battler
-- **Платформа:** браузер (desktop 1920×1080 landscape, mobile 667×375 forced-landscape)
-- **Формула:** Auto Battler × Idle × Roguelite × Single-player
+- **Жанр:** Single-player Idle Roguelite Physics Auto Battler
+- **Платформа:** браузер (desktop 1920×1080, mobile 667×375 landscape)
+- **Формула:** Physics × Idle × Roguelite × Single-player
 - **Эмоциональная цель:** «Это моя ошибка» → «В следующий раз будет лучше»
-- **Сессия:** 8–12 минут на забег, бесконечная мета-прогрессия
+- **Сессия:** 8–12 минут на обычный забег, бесконечный режим — до 100 слоёв
+
+**Особый финал боя (v6.9):**
+Если бой не завершается за MAX_BATTLE_TIME (30 сек обычный,
+60 сек босс), происходит эпичное событие:
+
+- Обычный бой / elite → обвал пещеры (все погибают)
+- Босс → пробуждение Древнего (непобедимый враг убивает всех)
+
+Это не "поражение по таймауту" — это сюжетный финал боя.
+Игрок видит, что произошло, и понимает, почему проиграл.
+
+### §1.1. Три фазы игры
+
+**Фаза 1: До финала (обычные забеги)**
+
+- depth = 8 + bossesKilledTotal
+- Цель: дойти до финального босса
+- Гномы умирают навсегда
+- Замена только в Кузнице или событии
+- При смерти всех → сброс deadDwarves перед новым забегом
+
+**Фаза 2: Финал (финальный босс e_forge_demon)**
+
+- Условие: 5+ побед над обычными боссами
+- Уникальный босс: HP 500, ATK 20, summon
+- Победа → открывает бесконечный режим
+
+**Фаза 3: Бесконечный режим**
+
+- depth растёт с каждым слоем
+- Враги усиливаются
+- Смерть гномов — навсегда
+- **При смерти всех → немедленный сброс deadDwarves, забег продолжается**
+- Забег заканчивается: игрок сдаётся ИЛИ depth > 100
+- Цель: рекорд по глубине (maxDepthEver)
 
 ---
 
-## 2. СТЕК И АРХИТЕКТУРА
+## §2. СТЕК И АРХИТЕКТУРА
 
-### 2.1. Фиксированный стек
+### §2.1. Фиксированный стек
 
 | Слой | Технология |
 |---|---|
 | Рендер | **Phaser 3** (WebGL + Canvas fallback) |
-| Физика | **Matter.js** (ragdoll, отскоки) |
-| Состояние | Собственный immutable store (см. §2.10) |
+| Анимации | **Phaser tweens** (отскоки, ragdoll, удары) |
+| Состояние | Собственный immutable store |
 | Сохранение | localStorage (JSON) |
 | UI | Phaser DOM + HTML/CSS оверлеи |
-| Звук | WebAudio API (синтез, без сэмплов) |
+| Звук | WebAudio API (синтез) |
 | Тесты | Playwright + Lighthouse CI |
 | Бандл | Vite, < 5 MB gzip |
 | Язык | TypeScript strict mode |
 
-**Явный запрет:** React, Vue, Svelte, любые UI-фреймворки поверх Phaser — не используются нигде. Все 10 экранов (§4) — Phaser Scenes либо HTML/CSS-оверлеи поверх Phaser canvas.
+**Запрет:** React, Vue, Svelte, любые UI-фреймворки. Matter.js 
+не используется. Все 9 экранов — Phaser Scenes + HTML/CSS оверлеи.
 
-### 2.2. Структура папок
+### §2.2. Структура папок
 
 ```
 /src
   /core         — state, seed, game loop, types
-  /battle       — simulateTurn, simulateRun (§3.1.7–3.1.8),
-                  physics adapter, role resolution, synergies
+  /battle       — simulateBattleTick, simulateBattle, simulateRun,
+                  createBattleState, role resolution, synergies
   /economy      — золото, Наследие, торговец, forge, rest, кузница
-  /progression  — RunNode graph, unlock tree, map generator
-  /ui           — 10 экранов (Phaser Scenes + overlays)
+  /progression  — RunNode graph, unlock tree, map generator,
+                  endless mode
+  /ui           — 9 экранов (Phaser Scenes + overlays)
   /data         — JSON schemas + seed tables + events + synergies +
-                  enemies + smithy.ts (§3.5)
+                  enemies + smithy.ts + dwarves.ts (20 гномов)
   /idle         — offline income, auto-loop, autoEquip
   /persistence  — save/load, migration
   /assets       — процедурные спрайты, loader
@@ -263,13 +254,13 @@ architecture.md обязательно содержит:
   /playwright   — e2e
 /screenshots
 /videos
-/checkpoints    — fallback-архивы (§0.3), только если git недоступен
-/memory-bank    — journal-файлы (§0.5)
+/checkpoints
+/memory-bank
 /public
-  /atlas        — сгенерированные PNG + JSON
+  /atlas
 ```
 
-### 2.3. Контракты данных (единственный источник истины)
+### §2.3. Контракты данных
 
 ```typescript
 // core/types.ts
@@ -277,42 +268,23 @@ architecture.md обязательно содержит:
 type Role = 'tank' | 'warrior' | 'ranged' | 'mage' | 'support' | 'any';
 type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
 type Slot = 'weapon' | 'armor' | 'trinket' | 'rune';
-type Position = 'front' | 'mid' | 'back';
 type RunStatus = 'active' | 'victory' | 'defeat' | 'abandoned';
 type Tag = 'metal' | 'cloth' | 'runic' | 'wood' | 'bone';
 type NodeType = 'battle' | 'elite' | 'shop' | 'event' | 'rest' | 'boss' | 'forge';
 
-// Effect.value — единицы измерения по типу:
-//   'stun'            → value = шанс срабатывания в % (15 = 15%)
-//   'lifesteal'       → value = доля от нанесённого урона в % (50 = 50%)
-//   'splash'          → value = доля урона по соседям в % (30 = 30%)
-//   'pierce'          → value = игнорируемая доля DEF в % (50 = 50%)
-//   'taunt'           → value = длительность в ходах (2)
-//   'aura_def'/'aura_atk'/'aura_spd' → value = бонус в % (10 = +10%)
-//   'conditional_atk' → value = бонус ATK в % при условии (50 = +50%)
-//   'double_strike'   → value = шанс второго удара в % (50 = 50%)
-//   'hp_regen'        → value = абсолютное HP за ход (5 = 5 hp), §3.1.9
-//   'extra_slot'      → value игнорируется, наличие = булев флаг (§3.1.6)
-//   'poison'/'burn'   → value = урон за ход, абсолютное HP (5 = 5 hp/turn)
-//
-// DUAL-MEANING эффекты ('poison', 'burn'):
-//   Несут ДВА смысла одновременно:
-//     value  = урон/эффект (что делает)
-//     chance = вероятность срабатывания в % (как часто)
-//   Пример: { type: 'poison', value: 5, chance: 20 } =
-//     "20% шанс наложить 5 hp/turn"
-//   Если chance не задан → срабатывает безусловно (100%).
-//
-// Для всех остальных типов chance ОПЦИОНАЛЕН и, если задан,
-// переопределяет встроенную семантику value. Примеры:
-//   { type: 'stun', value: 15 }             → 15% шанс стана
-//   { type: 'stun', value: 15, chance: 50 } → 50% шанс стана
-//   { type: 'lifesteal', value: 50 }        → 50% от урона в hp (всегда)
-//   { type: 'lifesteal', value: 50, chance: 80 } → 80% шанс срабатывания
+// v6.9: причина окончания боя
+type BattleEndReason =
+  | 'victory'
+  | 'defeat'
+  | 'timeout_collapse'    // обвал пещеры (обычный бой)
+  | 'timeout_ancient'     // пробуждение Древнего (элита/босс)
+  | 'abandoned';
+
 interface Effect {
   type: 'stun' | 'lifesteal' | 'splash' | 'pierce' | 'taunt' |
         'aura_def' | 'aura_atk' | 'aura_spd' | 'conditional_atk' |
-        'double_strike' | 'hp_regen' | 'extra_slot' | 'poison' | 'burn';
+        'double_strike' | 'hp_regen' | 'extra_slot' | 'poison' | 'burn' |
+        'summon';                    // v6.7: для финального босса
   value: number;
   chance?: number;
   radius?: number;
@@ -344,7 +316,6 @@ interface Dwarf {
   name: string;
   baseHP: number; baseATK: number; baseDEF: number;
   equipment: Equipment[];
-  position: Position;
   currentHP: number;
   isAlive: boolean;
   speed: number;
@@ -359,13 +330,55 @@ interface Enemy {
   name: string;
   baseHP: number; baseATK: number; baseDEF: number;
   speed: number;
+  attackType: AttackType;         // v7.0: 'melee' | 'ranged'
+  attackRange: number;            // v7.0: 80 melee, 260 ranged
   effects: Effect[];
   statusEffects: StatusEffect[];
   isBoss: boolean;
   isElite: boolean;
   currentHP: number;
   isAlive: boolean;
-  position: Position;
+}
+
+interface BattleDwarf {
+  dwarfId: string;
+  positionIndex: number;
+  x: number;
+  y: number;
+  attackCooldown: number;
+}
+
+interface BattleEnemy {
+  enemyId: string;
+  instanceId: string;
+  x: number;
+  y: number;
+  attackCooldown: number;
+}
+
+interface BattleState {
+  phase: 'running' | 'victory' | 'defeat';
+  isBossFight: boolean;
+  isEndless: boolean;                // v6.7: бесконечный режим
+  endReason: BattleEndReason | null; // v6.9: почему бой закончился
+  dwarves: Dwarf[];
+  battleDwarves: BattleDwarf[];
+  enemies: Enemy[];
+  battleEnemies: BattleEnemy[];
+  timeElapsed: number;
+  seed: number;
+  log: string[];
+  totalEnemies: number;
+  enemiesSpawned: number;
+  spawnTimer: number;
+  enemyPool: string[];
+  poisonBurnTimer: number;
+  regenTimer: number;
+  tauntMemory: {
+    x: number;
+    remainingMs: number;
+  } | null;
+  summonTimer: number;               // v6.7: для e_forge_demon
 }
 
 interface ShopItem {
@@ -382,6 +395,7 @@ interface RunNode {
   next: string[];
   data?: {
     enemyIds?: string[];
+    enemyTypes?: string[];            // v7.0: уникальные типы волны (§3.3.1) — превью экрана 3
     eventId?: string;
     shopStock?: ShopItem[];
   };
@@ -391,6 +405,7 @@ interface RunState {
   runId: string;
   seed: number;
   floor: number;
+  depth: number;                     // v6.7: текущая глубина
   gold: number;
   dwarves: Dwarf[];
   inventory: Equipment[];
@@ -400,6 +415,8 @@ interface RunState {
   bossKilled: boolean;
   elitesKilled: number;
   startedAt: number;
+  isEndless: boolean;                // v6.7: бесконечный режим
+  endlessFloor: number;              // v6.7: номер слоя в бесконечном
 }
 
 interface Choice {
@@ -424,8 +441,12 @@ interface MetaState {
   maxFloorEverReached: number;
   unlockedDwarves: string[];
   unlockedEquipment: string[];
+  deadDwarves: string[];
   lastSeenAt: number;
   runCount: number;
+  bossesKilledTotal: number;         // v6.7: всего убито боссов
+  endlessUnlocked: boolean;          // v6.7: открыт ли бесконечный режим
+  maxDepthEver: number;              // v6.7: рекорд по глубине
   unlocks: {
     autoBattle: boolean;
     autoRepeat: boolean;
@@ -435,14 +456,16 @@ interface MetaState {
 }
 ```
 
-### 2.4. Детерминизм
+### §2.4. Детерминизм
 
-- Симуляция боя: seed → PRNG (Mulberry32). Одинаковый seed = одинаковый исход.
-- Физика Matter.js: solver инициализируется тем же seed.
-- Карта забега: seed → генерация графа (§3.3.1).
-- Тест: `simulateRun(42)` дважды → JSON diff пустой (§3.1.8, §7.2).
+- Симуляция боя: seed → PRNG (Mulberry32). Одинаковый seed + 
+  `FIXED_TIMESTEP_MS` → одинаковый результат.
+- Симуляция — чистая TS-логика, без Phaser.
+- Phaser tweens — только визуальный слой.
+- Карта забега: seed → генерация графа.
+- Тест: `simulateRun(42)` дважды → JSON diff пустой.
 
-### 2.5. Performance budget
+### §2.5. Performance budget
 
 | Метрика | Бюджет | Измерение |
 |---|---|---|
@@ -453,9 +476,7 @@ interface MetaState {
 | TTI | < 3 s | Lighthouse |
 | Heap | < 256 MB | DevTools Memory |
 
-Проверяется на Шаге 0 Фазы 1 (§8), до реализации фич.
-
-### 2.6. Persistence contract
+### §2.6. Persistence contract
 
 ```
 localStorage:
@@ -468,29 +489,29 @@ Timestamp:
   delta = Math.max(0, Date.now() - meta.lastSeenAt)
   Защита: if (delta > 8 * 3600000) → clamp to 8h
 
-Сохранение: после каждого узла (run); после каждого боя
-(meta.legacy); при visibilitychange → 'hidden'; дебаунс 500ms.
+Сохранение: после каждого узла; после каждого боя; при 
+visibilitychange → 'hidden'; дебаунс 500ms.
 
-Миграция: if (saved.version < CURRENT) → runMigration(saved);
-if (migration fails) → сброс с confirm-диалогом.
+ВАЖНО: BattleState НЕ сохраняется. BattleDwarf/BattleEnemy — 
+runtime-only.
 ```
 
-### 2.7. Error handling
+### §2.7. Error handling
 
 | Ситуация | Поведение |
 |---|---|
-| Закрытие во время боя | run сохраняется на начало боя |
+| Закрытие во время боя | RunState сохраняется на начало боя |
 | Непроходимая карта | fallback: линейный путь |
-| Δhours < 0 | offlineGain = 0, warning в лог |
-| Инвентарь > 100 предметов | авто-продажа common за 5 gold (§3.3.2) |
-| Осиротевший equip | удаляется при загрузке, лог |
+| Δhours < 0 | offlineGain = 0, warning |
+| Инвентарь > 100 | авто-продажа common за 5 gold |
+| Осиротевший equip | удаляется, лог |
 | Seed → невалидный граф | перегенерация с seed+1 |
-| Битый save | сброс с confirm-диалогом |
+| Битый save | сброс с confirm |
+| availableDwarves < 2 | сброс deadDwarves |
 
-### 2.8. index.html и точка входа
+### §2.8. index.html и точка входа
 
 ```html
-<!-- index.html — минимальный контракт -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -507,30 +528,25 @@ if (migration fails) → сброс с confirm-диалогом.
 </html>
 ```
 
-```
-src/main.ts — точка входа:
-  import Phaser from 'phaser';
-  import { BootScene } from './ui/scenes/BootScene';
-  // ... остальные сцены
+```typescript
+// src/main.ts
+import Phaser from 'phaser';
+import { BootScene } from './ui/scenes/BootScene';
 
-  new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: 'game',
-    width: 1280,
-    height: 720,
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-    },
-    physics: {
-      default: 'matter',
-      matter: { gravity: { y: 1 }, debug: false },
-    },
-    scene: [BootScene, /* ... */],
-  });
+new Phaser.Game({
+  type: Phaser.AUTO,
+  parent: 'game',
+  width: 1920,
+  height: 1080,
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
+  scene: [BootScene],
+});
 ```
 
-### 2.9. package.json — минимальный контракт
+### §2.9. package.json
 
 ```json
 {
@@ -548,11 +564,9 @@ src/main.ts — точка входа:
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "phaser": "^3.80.0",
-    "matter-js": "^0.19.0"
+    "phaser": "^3.80.0"
   },
   "devDependencies": {
-    "@types/matter-js": "^0.19.0",
     "typescript": "^5.4.0",
     "vite": "^5.2.0",
     "vitest": "^1.5.0",
@@ -567,139 +581,405 @@ src/main.ts — точка входа:
 }
 ```
 
-### 2.10. Store — без внешних зависимостей
+### §2.10. Store
 
 ```
-Собственный immutable store (без внешних зависимостей), API:
+Собственный immutable store, без внешних зависимостей:
   getState(): State
   setState(updater: (prev: State) => State): void
   subscribe(listener: (state: State) => void): () => void
 
-Обновления — через shallow clone + spread. Без Immer/Zustand/Redux.
-Причина: минимум зависимостей, полный контроль, нет React-конфликта.
+Обновления — shallow clone + spread.
 ```
 
 ---
 
-## 3. ГЕЙМПЛЕЙНОЕ ЯДРО
+## §3. ГЕЙМПЛЕЙНОЕ ЯДРО
 
-### 3.1. Auto Battler (детерминированная симуляция)
+### §3.1. Auto Battler — вид сбоку, непрерывный поток
 
-```
-Инициатива:  speed = base(10) + equipMod + rand(seed, 0..3)
-Порядок хода: единая очередь по speed (desc), tie-break: seed PRNG.
-Атака:       rawDmg = atk - target.def * (1 - pierce)
-             if rawDmg < 1 → 1
-Спецэффекты: stun → skip 1 turn (шанс = value%)
-             lifesteal → heal(dmg * value/100)
-             splash → dmg * value/100 по соседям цели
-             double_strike → 2-й удар с шансом value%, урон 50%
-             conditional_atk → atk × (1 + value/100), если hp < 30%
-             poison/burn → срабатывает с шансом Effect.chance
-                           (default 100%), наносит value hp/turn
-                           на duration ходов
-             hp_regen → см. §3.1.9
-Смерть:      hp ≤ 0 → isAlive=false, ragdoll trigger
-Победа:      все враги dead
-Поражение:   все гномы dead
-Лимит ходов: MAX_TURNS = 50, MAX_TURNS_BOSS = 100
-             если лимит достигнут → run.status = 'defeat'
-```
-
-**Формация:** 3 линии (front/mid/back).
-- front: ×1.5 получаемый урон, приоритет цели
-- mid: ×1.0
-- back: ×0.5 получаемый урон, дальние атаки
-
-#### 3.1.1. Battle scene layout
+#### §3.1.1. Battle scene layout
 
 ```
-Canvas: 1280×720 (desktop), 667×375 (mobile forced-landscape).
-Сетка: 8 колонок × 4 ряда.
-Гномы: колонки 0–2 (left), враги: колонки 5–7 (right).
-Front line = row 2, mid = row 1, back = row 0.
-Камера: статичная, fit-to-screen.
-Слои (z-index): bg_far(0.0) → bg_mid(0.1) → bg_crystals(0.2) →
-                bg_near(0.3) → bg_fog(0.4) → shadows(1) → bodies(2)
-                → particles(3) → hp_bars(4) → ui(5).
-Ход: 600ms анимация + 200ms пауза.
-Максимум врагов: 6. Максимум гномов: 10.
+Canvas: 1920×1080 (логический размер), scale FIT.
+Вид: СБОКУ (2D-арена, без гравитации, без прыжков).
+Земля: y = FIELD_GROUND_Y = 900.
+
+РАСПОЛОЖЕНИЕ:
+- Гномы: спавн слева
+- Враги: спавн x = SPAWN_RIGHT_X = 1820
+- Гномы бегут вправо, враги влево
+
+ФОРМАЦИЯ ГНОМОВ (динамическая):
+- positionIndex 0: x = 100   (танк, фиксирован)
+- positionIndex 1: x = 180
+- ...
+- positionIndex N-1: x = 100 + 80 × (N-1)
+
+Константы:
+  SPAWN_LEFT_X = 100
+  COLUMN_SPACING = 80
+  MAX_DWARVES = 10
+
+СОРТИРОВКА (при старте боя):
+1. Танки → 2. Воины → 3. Ranged/Mage → 4. Support
+Внутри группы — по порядку найма.
+
+sortOrder = { tank: 0, warrior: 1, ranged: 2, mage: 2, support: 3 }
+
+ДИСТАНЦИЯ АТАКИ ПО РОЛЯМ:
+- tank:    80 px
+- warrior: 80 px
+- ranged:  300 px
+- mage:    250 px
+- support: 150 px
+
+COOLDOWN ПО РОЛЯМ:
+- tank / warrior / support: 600 мс
+- ranged / mage:            400 мс
+
+МОДИФИКАТОР УРОНА ДАЛЬНЕГО БОЯ:
+- ranged / mage: finalDmg × 0.5
+
+ПРИОРИТЕТ ВЫБОРА ЦЕЛИ ВРАГА:
+1. Гном с ЯВНЫМ taunt (magnet_shield) в ATTACK_RANGE_TANK → его
+2. Живой танк (неявный taunt) → случайный танк (prng)
+3. Случайный живой гном → prng
+
+ЯВНЫЙ TAUNT (magnet_shield, value=2):
+- Приоритет над неявным taunt.
+- Действует, пока гном жив.
+- После смерти носителя: 2 секунды враги двигаются к позиции трупа,
+  НО НЕ АТАКУЮТ.
+- Хранится в state.tauntMemory.
+
+НЕПРЕРЫВНЫЙ ПОТОК ВРАГОВ:
+- Спавн каждые SPAWN_INTERVAL = 500 мс (300 мс при floor ≥ 8)
+- totalEnemies — ЦЕЛЕВОЕ число врагов за бой.
+- Бой заканчивается:
+    a) все totalEnemies заспавнены и мертвы → victory
+    b) все гномы мертвы → defeat
+    c) timeElapsed >= MAX_BATTLE_TIME → defeat
+
+ДВИЖЕНИЕ И АТАКИ:
+- Гравитация: y = 0 (все на y = 900)
+- Гном бежит вправо, если нет врага в его ATTACK_RANGE
+- Враг бежит влево
+- Гном бьёт врага → враг: x += BOUNCE_DISTANCE (100 px, вправо)
+- Враг бьёт гнома → гном: x -= BOUNCE_DISTANCE (100 px, влево)
+
+ФОРМУЛА УРОНА:
+finalDmg = max(minDamage(floor), atk - def × (1 - pierce))
+где minDamage(floor) = max(1, floor(floor / 2))
+Для ranged/mage: finalDmg × 0.5
+
+АТАКА:
+Для каждого гнома (isAlive):
+  - attackCooldown -= dt
+  - Если cooldown ≤ 0 и враг в ATTACK_RANGE(role):
+    - Выбрать цель
+    - finalDmg = /* формула выше */
+    - cooldown = ATTACK_COOLDOWN_BASE(role) / (1 + speed / 30)
+    - target.x += BOUNCE_DISTANCE
+
+Для каждого врага (isAlive):
+  - attackCooldown -= dt
+  - Если cooldown ≤ 0 и гном в ATTACK_RANGE_TANK (80):
+    - Выбрать цель
+    - finalDmg = /* формула выше */
+    - cooldown = ENEMY_ATTACK_COOLDOWN (1000 мс)
+    - target.x -= BOUNCE_DISTANCE
+
+ФИНАЛЬНЫЙ БОСС (e_forge_demon):
+- Присутствует эффект 'summon' (value=10, chance=100)
+- Каждые 10 секунд (summonTimer) призывает 3 e_golem
+- HP 500, ATK 20, DEF 12, SPD 40
+
+СМЕРТЬ:
+- HP ≤ 0 → isAlive = false
+- Враг: Phaser tween (rotation += 360°, alpha → 0, 2000 мс), удаляется
+- Гном: Phaser tween (rotation += 180°, y += 50, 500 мс), остаётся
+
+ЭКИПИРОВКА И НАСЛЕДИЕ:
+При смерти гнома в бою:
+  1. equipment[] КОПИРУЕТСЯ в run.inventory (clone objects)
+  2. meta.deadDwarves.push(dwarfId)
+  3. Dwarf удаляется из meta.unlockedDwarves
+  4. Гном умер НАВСЕГДА
+
+БЕСКОНЕЧНЫЙ РЕЖИМ (v6.7):
+Если run.isEndless === true И все гномы мертвы:
+  - meta.deadDwarves = []  (немедленный сброс)
+  - run.dwarves = все разблокированные гномы
+  - run.status = 'active' (забег продолжается)
+  - battleDwarves = пересоздать
+  - Показать сообщение "Гномы возродились в Кузнице"
+
+После завершения забега (victory/defeat/abandoned):
+  5. run.inventory ОБЪЕДИНЯЕТСЯ с meta.unlockedEquipment
+     (дубликаты не добавляются, проверка по id)
+  6. run.inventory сбрасывается
+  7. Экипировка сохраняется как "наследие"
+
+Регенерация 5% missingHP НЕ применяется при defeat — только при victory.
+
+РЕГЕНЕРАЦИЯ МЕЖДУ БОЯМИ (victory only):
+- missingHP = baseHP - currentHP
+- heal = missingHP * 0.05
+- currentHP = min(currentHP + heal, baseHP)
+
+ПОБЕДА:
+- Все враги мертвы
+- Применить регенерацию
+
+ПОРАЖЕНИЕ:
+- Все гномы мертвы И run.isEndless === false
+
+ИНИЦИАЛИЗАЦИЯ BattleState (createBattleState):
+- isBossFight = (currentNode.type === 'boss')
+- isEndless = run.isEndless
+- endReason = null                  // v6.9
+- phase = 'running'
+- timeElapsed = 0
+- enemiesSpawned = 0
+- spawnTimer = 0
+- poisonBurnTimer = 0
+- regenTimer = 0
+- tauntMemory = null
+- summonTimer = 0
+- seed = run.seed
+- battleDwarves = создать по числу dwarves с сортировкой
+- battleEnemies = []
+- enemies = []
+- enemyPool = сформировать из floor
+- totalEnemies = enemyCount(floor, isElite)
+
+ЛИМИТ ВРЕМЕНИ:
+- MAX_BATTLE_TIME = 30000 (обычный), 60000 (босс)
+- Использует state.isBossFight для выбора
+- При достижении → endReason устанавливается (см. ниже)
+
+ОСОБЫЙ ФИНАЛ БОЯ (v6.9):
+Если бой затягивается до MAX_BATTLE_TIME — НЕ просто поражение,
+а эпичное событие:
+
+1. ПРИБЛИЖЕНИЕ (последние 5 секунд):
+   - Экран трясётся (tween: x ±5, y ±5, 100 мс)
+   - Падают камни (частицы каждые 200 мс)
+   - Звук гула (WebAudio, низкие частоты)
+   - Текст в HUD: "Глубины пробуждаются..."
+
+2. ТАЙМАУТ — ОБВАЛ (обычный бой, elite):
+   - endReason = 'timeout_collapse'
+   - Все юниты исчезают (tween alpha → 0, 500 мс)
+   - Экран тёмный (overlay alpha → 1, 1000 мс)
+   - Текст: "Пещера обрушилась. Гномы погребены."
+   - phase = 'defeat'
+   - Переход на экран 9
+
+3. ТАЙМАУТ — ДРЕВНИЙ (босс):
+   - endReason = 'timeout_ancient'
+   - Появляется Древний (e_ancient, спрайт 96×96, выход справа, 500 мс)
+   - Древний атакует — все юниты получают 999 урона
+   - Все исчезают (ragdoll, alpha → 0, 2000 мс)
+   - Экран тёмный
+   - Текст: "Древний пробудился. Гномы пали."
+   - phase = 'defeat'
+   - Переход на экран 9
+
+БОСС-СЛОЙ:
+- Всегда на слое depth-1.
+- Boss зависит от depth (§6.3.2).
 ```
 
-#### 3.1.2. Run termination
-
-```
-Триггеры конца забега:
-1. Все гномы dead в бою → run.status = 'defeat'
-2. Игрок жмёт «Сдаться» → run.status = 'abandoned'
-3. Босс убит → run.status = 'victory'
-4. MAX_TURNS reached → run.status = 'defeat'
-
-При defeat/abandoned:
-- legacy = floor × 5
-- unlockedEquipment не обновляется
-- runCount++
-- Инвентарь сбрасывается
-- Переход на экран 10
-
-При victory:
-- legacy = floor × 5 + 50 + (elitesKilled > 0 ? 10 : 0)
-- unlockedEquipment обновляется (§3.3.6)
-- runCount++
-- Переход на экран 10
-
-Разблокировка гномов (unlockedDwarves) — независима от результата
-забега, срабатывает при входе на любой узел (§3.3.5.1).
-```
-
-#### 3.1.3. Role resolution
-
-```
-Dwarf.role = роль предмета в самом приоритетном слоте.
-Priority: weapon > armor > trinket > rune.
-Если предмет имеет role = 'any' → пропускается при поиске роли.
-Если weapon нет → смотрим armor → trinket → rune.
-Если нет предметов с конкретной ролью → role = dwarf.roleBias (§6.1).
-Конфликт (weapon=ranged, armor=tank) → роль ranged, stats от armor
-применяются полностью. Штрафов нет.
-```
-
-#### 3.1.4. Synergies (резолвятся перед боем)
+#### §3.1.2. Симуляция боя (fixed timestep)
 
 ```typescript
-interface Synergy {
-  id: string;
-  name: string;
-  condition: SynergyCondition;
-  effect: SynergyEffect;
+const FIXED_TIMESTEP_MS = 1000 / 60;  // 16.667 мс
+const MAX_TICKS_PER_FRAME = 4;
+
+update(time: number, delta: number) {
+  accumulator += delta;
+  let ticks = 0;
+  while (accumulator >= FIXED_TIMESTEP_MS && ticks < MAX_TICKS_PER_FRAME) {
+    battleState = simulateBattleTick(battleState, FIXED_TIMESTEP_MS, prng);
+    accumulator -= FIXED_TIMESTEP_MS;
+    ticks++;
+  }
+  renderBattle(battleState);
 }
+```
 
+#### §3.1.2.1. simulateBattleTick — детальная спецификация
+
+```typescript
+simulateBattleTick(state, dt, prng): BattleState
+
+1. Спавн врагов:
+   - state.spawnTimer += dt
+   - Если spawnTimer >= SPAWN_INTERVAL и enemiesSpawned < totalEnemies:
+     - Создать врага из enemyPool (через prng)
+     - instanceId = `enemy_${enemiesSpawned}_${state.seed}`
+     - x = SPAWN_RIGHT_X, y = 900
+     - spawnTimer = 0, enemiesSpawned++
+
+1b. Summon для финального босса (v6.7):
+   Если в battleEnemies есть враг с effect.type === 'summon':
+     state.summonTimer += dt
+     Если summonTimer >= 10000 (10 сек):
+       - Создать 3 e_golem рядом с боссом
+       - summonTimer = 0
+
+2. Движение:
+   - Для каждого гнома (isAlive):
+       range = ATTACK_RANGE_BY_ROLE[role]
+       Если нет живого врага в радиусе range:
+         x += speed * dt/1000
+   - Для каждого врага (isAlive):
+       Если state.tauntMemory !== null и remainingMs > 0:
+         Если x > tauntMemory.x:
+           x -= speed * dt/1000
+       Иначе если нет живого гнома в ATTACK_RANGE_TANK (80):
+         x -= speed * dt/1000
+
+3. Атаки гномов:
+   Для каждого гнома (isAlive):
+     - attackCooldown -= dt
+     - Если cooldown ≤ 0:
+       - Найти цель
+       - finalDmg = /* формула */
+       - cooldown = ATTACK_COOLDOWN_BASE[role] / (1 + speed/30)
+       - target.x += BOUNCE_DISTANCE
+
+4. Атаки врагов:
+   Для каждого врага (isAlive):
+     - attackCooldown -= dt
+     - Если cooldown ≤ 0:
+       - Найти цель по приоритету
+       - finalDmg = /* формула */
+       - cooldown = ENEMY_ATTACK_COOLDOWN (1000 мс)
+       - target.x -= BOUNCE_DISTANCE
+
+5. Poison/burn тик:
+   state.poisonBurnTimer += dt
+   Если poisonBurnTimer >= 1000:
+     для каждого юнита (isAlive) со statusEffects:
+       для poison/burn: currentHP -= effect.value
+     poisonBurnTimer = 0
+
+5b. Taunt memory тик:
+    Если state.tauntMemory !== null:
+      state.tauntMemory.remainingMs -= dt
+      Если remainingMs <= 0: state.tauntMemory = null
+
+6. hp_regen тик:
+   state.regenTimer += dt
+   Если regenTimer >= 2000:
+     для каждого гнома (isAlive) с hp_regen в equipment:
+       heal = calculateHpRegen(dwarf)  // v6.9: с лимитом
+       currentHP = min(currentHP + heal, baseHP)
+     regenTimer = 0
+
+7. Проверка смерти:
+   - currentHP <= 0 → isAlive = false
+   - При смерти гнома:
+     a) обработка наследия
+     b) если есть taunt-эффект и tauntMemory === null:
+          tauntMemory = { x: x, remainingMs: value * 1000 }
+
+7b. Бесконечный режим — проверка (v6.7):
+    Если state.isEndless && все battleDwarves мертвы:
+      - Возрождение: deadDwarves = []
+      - battleDwarves = все разблокированные с позициями
+      - dwarves = все разблокированные
+      - phase = 'running'
+      - Продолжить тик
+
+8. Проверка победы/поражения:
+   - Все battleEnemies мертвы → phase = 'victory'
+   - Все battleDwarves мертвы И NOT isEndless → phase = 'defeat'
+
+9. timeElapsed += dt
+
+10. Проверка таймаута (v6.9):
+    Если timeElapsed >= MAX_BATTLE_TIME (или MAX_BATTLE_TIME_BOSS):
+      - phase = 'defeat'
+      - endReason = (isBossFight)
+        ? 'timeout_ancient'
+        : 'timeout_collapse'
+      - timeElapsed = MAX_BATTLE_TIME  (зафиксировать)
+```
+
+#### §3.1.2.2. simulateBattle — headless-прогон
+
+```typescript
+export function simulateBattle(
+  initialState: BattleState,
+  seed: number
+): BattleState {
+  const prng = mulberry32(seed);
+  let state = initialState;
+  
+  const MAX_TIME = state.isBossFight 
+    ? MAX_BATTLE_TIME_BOSS 
+    : MAX_BATTLE_TIME;
+  
+  while (state.phase === 'running' && state.timeElapsed < MAX_TIME) {
+    state = simulateBattleTick(state, FIXED_TIMESTEP_MS, prng);
+  }
+  
+  if (state.phase === 'running') {
+    state.phase = 'defeat';
+    // v6.9: страховка headless-прогона — фиксируем причину таймаута
+    state.endReason = state.isBossFight ? 'timeout_ancient' : 'timeout_collapse';
+  }
+  
+  return state;
+}
+```
+
+#### §3.1.3. Role resolution
+
+```
+Dwarf.role = роль предмета в weapon slot.
+Priority: weapon > armor > trinket > rune.
+Если 'any' → пропускается.
+Если weapon нет → roleBias (§6.1).
+```
+
+#### §3.1.4. Synergies
+
+```typescript
 type SynergyCondition =
-  | { type: 'count_role'; role: Role; count: number; line?: Position }
+  | { type: 'count_role'; role: Role; count: number }
   | { type: 'count_tag'; tag: Tag; count: number }
-  | { type: 'combo'; roles: Role[]; sameLine: boolean };
-
-type SynergyEffect =
-  | { type: 'buff_atk'; value: number; target: 'all' | Role }
-  | { type: 'buff_def'; value: number; target: 'all' | Role }
-  | { type: 'buff_spd'; value: number; target: 'all' | Role }
-  | { type: 'buff_hp'; value: number; target: 'all' | Role };
+  | { type: 'adjacent_roles'; roles: [Role, Role] };
 ```
 
-Встроенные синергии — см. §6.6. count_tag считает теги по всем надетым предметам всех живых гномов в начале боя. Синергии стакаются, проверяются перед каждым боем.
+**4 синергии — см. §6.6.**
 
-#### 3.1.5. Target selection
+#### §3.1.5. Target selection
 
 ```
-1. Если есть taunt-цель → атакует её.
-2. Иначе: приоритет front > mid > back среди живых.
-3. Если в линии нет живых → следующая линия.
-4. Fallback: first alive in any line.
-5. Внутри линии: случайная цель (seed PRNG).
-taunt: длительность из Effect.value (ходов), forced targeting.
+Цель атаки гнома:
+1. taunt-враг в ATTACK_RANGE → его.
+2. Иначе: ближайший живой враг по x.
+3. Если врагов нет → бежать вперёд.
+
+Цель атаки врага:
+1. Гном с ЯВНЫМ taunt в ATTACK_RANGE_TANK → его.
+2. Живой танк (неявный taunt) → случайный танк (prng).
+3. Случайный живой гном (prng).
+4. Если гномов нет → бежать влево.
+
+v7.0 (пошаговая адаптация): taunt приоритетен для всех;
+ranged-враги (e_archer_goblin, e_shaman) пункт 2 пропускают —
+цель = случайный живой гном ИЗ ВСЕХ линий (тыл не укрытие,
+аналог «стреляет по ближайшему в attackRange 260»),
+melee — приоритет front → mid → back, внутри линии prng.
 ```
 
-#### 3.1.6. Extra slot
+#### §3.1.6. Extra slot
 
 ```
 extraSlotCount = количество предметов с effect.type = 'extra_slot'.
@@ -707,25 +987,26 @@ localSlotBonus = Math.min(1, extraSlotCount).
 Итоговый лимит слотов = meta.maxSlots + localSlotBonus.
 ```
 
-#### 3.1.7. Разделение логики и рендера (ОБЯЗАТЕЛЬНО)
+#### §3.1.7. Разделение логики и рендера
 
 ```
-/src/battle/simulator.ts экспортирует чистую функцию хода:
-  export function simulateTurn(state: BattleState): BattleState
-Не импортирует Phaser, Matter.js, DOM API. POJO in/out.
-Детерминирована по seed. Рендер (Phaser Scene) визуализирует уже
-посчитанный результат, никогда не содержит игровой логики.
+/src/battle/simulator.ts экспортирует:
+  simulateBattleTick(state, dt, prng): BattleState
+  simulateBattle(state, seed): BattleState
+  simulateRun(seed, options?): RunState
+  createBattleState(run, node): BattleState
+
+НЕ импортирует Phaser, DOM API. POJO in/out.
 ```
 
-#### 3.1.8. simulateRun — headless-прогон всего забега
+#### §3.1.8. simulateRun
 
 ```typescript
-// /src/battle/simulator.ts (тот же модуль, что §3.1.7)
-
 export interface RunOptions {
   maxFloors?: number;
   scriptedChoices?: Choice[];
-  aiPolicy?: 'greedy' | 'random';   // default 'greedy'
+  aiPolicy?: 'greedy' | 'random';
+  isEndless?: boolean;               // v6.7
 }
 
 export function simulateRun(
@@ -734,58 +1015,81 @@ export function simulateRun(
 ): RunState
 ```
 
-Поведение:
-1. Генерирует карту через `generateMap(seed)` (`/src/progression`).
-2. Формирует стартовый отряд (дефолт для headless: `d_brom` + `d_grim`, если meta не передана).
-3. Проходит узлы карты: `battle`/`elite`/`boss` → `simulateTurn()` в цикле до победы/поражения/лимита ходов; `shop`/`forge`/`rest`/`event` → `scriptedChoices[nodeId]`, иначе `aiPolicy`.
-4. Останавливается на `victory`/`defeat`/`abandoned` либо `maxFloors`.
-5. Возвращает финальный `RunState`.
-
-Не импортирует Phaser/Matter/DOM. Используется в determinism-тесте (§7.2) и balance-тесте (§7.5).
-
-#### 3.1.9. hp_regen — механика
+#### §3.1.9. hp_regen
 
 ```
-Срабатывает в конце хода гнома-владельца предмета (после его атаки,
-до перехода хода дальше). heal(value) — абсолютное HP, не выше maxHP.
-Стекается: сумма value всех hp_regen-предметов гнома за один тик.
-Не срабатывает, если гном мёртв или оглушён.
+Тик каждые 2000 мс. heal(value), не выше maxHP.
+Стекается. Не работает, если гном мёртв или оглушён.
 ```
 
-### 3.2. Idle-слой
+---
+
+### §3.2. Idle-слой
 
 | Механика | Триггер | Формула |
 |---|---|---|
-| Offline-Наследие | reopen app | `Δ = max(0, Date.now() - meta.lastSeenAt) / 3.6e6`; `gain = min(Δ, 8) × (1 + smithy × 0.5 + offlineBonus × 0.1)` |
-| Сон кузницы | reopen app | `itemRolls = floor(Δ)`; каждый = случайный unlocked item с весами по редкости |
-| Авто-бой | unlock.runCount≥3 | пропуск кнопки «В бой», сразу `runBattle(seed)` |
-| Авто-повтор | unlock.runCount≥5 | после боя авто-выбор предыдущего типа узла |
-| Авто-подбор | unlock.runCount≥7 | шаблон (role→slot), применяется к новым гномам |
+| Offline-Наследие | reopen | Δ = max(0, Date.now() - meta.lastSeenAt) / 3.6e6; gain = min(Δ, 8) × (1 + smithy × 0.5 + offlineBonus × 0.1) |
+| Сон кузницы | reopen | itemRolls = floor(Δ); случайные unlocked items |
+| Авто-бой | runCount≥3 | пропуск кнопки «В бой» |
+| Авто-повтор | runCount≥5 | авто-выбор предыдущего типа узла |
+| Авто-подбор | runCount≥7 | шаблон role→slot применяется |
 
-#### 3.2.1. AutoEquip algorithm
-
-```
-Триггер: unlock.autoEquip = true (runCount ≥ 7).
-Для каждого dwarf: определить role (§3.1.3) → взять template[role] →
-для каждого slot: если в inventory есть предмет с этим id → надеть.
-Применять к новым гномам при найме.
-UI: экран 7 → вкладка «Шаблон» → drag&drop.
-```
-
-### 3.3. Roguelite: граф забега
-
-#### 3.3.1. Map generation algorithm
+#### §3.2.1. AutoEquip
 
 ```
-1. depth = 8 + (((seed % 4) + 4) % 4)  // всегда 8–11
-2. Каждый слой: 1–3 узла.
-3. Слой 0: 1 узел (battle). Слой depth-1: 1 узел (boss).
-4. Перед боссом (depth-2): гарантирован shop или rest.
-5. Bipartite-граф: 1–3 исходящих, 1–2 входящих на узел.
-6. Запрещено: 2 elite подряд на одном пути.
-7. seed → PRNG → выбор типов узлов по nodeProb(floor).
-8. Валидация: каждый узел достижим из старта, босс достижим из всех.
-9. Если невалидна → перегенерация с seed+1.
+Триггер: unlock.autoEquip = true.
+Для каждого dwarf: role → template[role] → надеть по slots.
+Применять к новым гномам (не к deadDwarves).
+```
+
+---
+
+### §3.3. Roguelite: граф забега
+
+#### §3.3.1. Map generation + Growing Depth (v6.8)
+
+```
+ОБЫЧНЫЙ РЕЖИМ:
+  depth = 8 + meta.bossesKilledTotal
+  // 0 побед: depth 8
+  // 1 победа: depth 9
+  // 5 побед: depth 13
+  // 10 побед: depth 18
+  // 20 побед: depth 28
+
+БЕСКОНЕЧНЫЙ РЕЖИМ:
+  Если run.isEndless:
+    depth = 8 + meta.maxDepthEver + run.endlessFloor
+    // endlessFloor: 0 на старте бесконечного, +1 с каждым пройденным слоем
+
+ГЕНЕРАЦИЯ (v6.8):
+  1. Слой 0: 1 узел (battle).
+  2. Слой depth-1: 1 узел (boss).
+  3. Слой depth-2: 2–4 узла, каждый — shop или rest (выбор по PRNG).
+  4. Слои 1..depth-3: 2–4 узла.
+  5. Тип узла — determineNodeType: выбор по nodeProb(floor); если в
+     предыдущем слое есть elite — elite исключается из пула и веса
+     перенормируются (запрет 2 elite подряд).
+  6. linkLayers: bipartite-граф — 1–3 исходящих / 1–2 входящих на узел.
+  7. validateMap: BFS от слоя 0 — все слои достижимы; босс достижим
+     ИЗ ВСЕХ узлов слоя depth-2 (обратный BFS от босса).
+  8. Невалидный граф → перегенерация с seed+1 (максимум 10 попыток),
+     затем линейный fallback §2.7 (1 узел/слой: battle → … → boss).
+
+ФИНАЛЬНЫЙ БОСС:
+  Условие: meta.bossesKilledTotal >= 5
+  На последнем слое — e_forge_demon вместо обычного босса.
+  Победа → meta.endlessUnlocked = true.
+
+БЕСКОНЕЧНЫЙ РЕЖИМ (v6.8):
+  depth = 8 + meta.maxDepthEver + run.endlessFloor
+  Слои: 2–4 узла (правила генерации те же).
+  Боссы: каждые 3 слоя (endlessFloor % 3 === 2), цикл [e_orc, e_golem, e_heart].
+  Враги: scaleHP = 1 + depth × 0.08, scaleATK = 1 + depth × 0.04 (§6.3.1).
+  Смерть всех гномов → немедленный сброс deadDwarves, забег продолжается (§3.1.1).
+  Выход: игрок сдался → run.status = 'abandoned' (наследие сохраняется);
+         depth > 100 → run.status = 'victory_endless' + бонус наследия.
+  Цель: рекорд maxDepthEver (экран 9).
 ```
 
 ```typescript
@@ -805,104 +1109,221 @@ function getNodeProbs(floor: number): Record<NodeType, number> {
 }
 ```
 
-```
-legacy = floor × 5 + (bossKilled ? 50 : 0) + (elitesKilled > 0 ? 10 : 0)
+```typescript
+// Псевдокод генерации карты v6.8 (детерминированный: seed → PRNG)
+function generateMap(seed: number, depth: number): RunNode[] {
+  let s = seed >>> 0;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const rng = mulberry32(s);
+    const layers = buildLayers(rng, depth);   // правила ГЕНЕРАЦИИ 1–5
+    linkLayers(rng, layers);                  // правило 6
+    if (validateMap(layers, depth)) return layers.flat();
+    s = (s + 1) >>> 0;                        // правило 8: seed+1
+  }
+  return linearFallback(depth);               // §2.7
+}
+
+function determineNodeType(rng: PRNG, layer: number, depth: number, prev: RunNode[]): NodeType {
+  if (layer === 0) return 'battle';
+  if (layer === depth - 1) return 'boss';
+  if (layer === depth - 2) return weighted(rng, [['shop', 0.5], ['rest', 0.5]]);
+  let probs = Object.entries(getNodeProbs(layer + 1)) as [NodeType, number][];
+  if (prev.some((n) => n.type === 'elite')) {
+    probs = probs.filter(([t]) => t !== 'elite'); // запрет 2 elite подряд
+  }
+  return weighted(rng, probs); // weighted перенормирует веса сам
+}
+
+function linkLayers(rng: PRNG, layers: RunNode[][]): void {
+  for (let l = 0; l < layers.length - 1; l++) {
+    for (const node of layers[l]) {
+      node.next = pickUnique(rng, layers[l + 1], randInt(rng, 1, 3)).map((n) => n.id);
+    }
+    for (const next of layers[l + 1]) {
+      while (inDegree(next, layers[l]) === 0)   // 1–2 входящих: минимум 1
+        addEdge(rng, layers[l], next);
+      while (inDegree(next, layers[l]) > 2)     // максимум 2, но так,
+        trimEdge(rng, layers[l], next);         // чтобы у источника осталось ≥ 1 исходящего
+    }
+  }
+}
+
+function validateMap(layers: RunNode[][], depth: number): boolean {
+  // Прямой BFS от слоя 0: каждый слой содержит ≥ 1 достижимый узел
+  if (!forwardReachable(layers, depth)) return false;
+  // Обратный BFS от босса: босс достижим ИЗ ВСЕХ узлов слоя depth-2
+  return allPreBossReachBoss(layers, depth);
+}
 ```
 
-#### 3.3.2. Shop behavior
+#### §3.3.2. Shop
 
 ```
-Stock: 3 equipment + 1 dwarf (if gold ≥ 10 и party < 10).
+Stock: 3 equipment + 1 dwarf.
 Цены: common 5, rare 12, epic 25, legendary 50, dwarf 10.
-Stock фиксируется при генерации карты (seed).
-Повторный заход: stock не меняется.
-Продажа: только авто-механика при инвентаре > 100 (§2.7).
+Stock фиксируется при генерации карты.
+
+Dwarf pool для магазина:
+  available = unlockedDwarves - deadDwarves - currentParty
+  Если available.length > 0:
+    dwarf = random(available)
+  Иначе: dwarf slot пустой
 ```
 
-#### 3.3.3. Forge behavior
+#### §3.3.3. Forge
 
 ```
-1. Игрок выбирает 1 предмет из run.inventory.
-2. Стоимость: 10 gold (common→rare), 20 (rare→epic),
-   40 (epic→legendary).
-3. Применяется rarity++ (§6.5.1). Поле stage НЕ меняется.
-4. Если gold < стоимости → forge недоступен, узел пустой.
-5. Если инвентарь пуст → узел пропускается.
+1. Игрок выбирает 1 предмет.
+2. Цена: 10 (common→rare), 20 (rare→epic), 40 (epic→legendary).
+3. rarity++ (§6.5.1). stage НЕ меняется.
+4. Если gold < цены или инвентарь пуст → узел пропускается.
 ```
 
-#### 3.3.4. Rest behavior
+#### §3.3.4. Rest
 
 ```
-Игрок выбирает A (choiceIndex=0) или B (choiceIndex=1):
-  A: heal 50% maxHP всем живым гномам.
-  B: remove all statusEffects у всех гномов.
+A (choiceIndex=0): heal 50% maxHP всем живым.
+B (choiceIndex=1): remove all statusEffects у всех.
 ```
 
-#### 3.3.5. Unlock table (dwarves)
+#### §3.3.5. Unlock table (v6.7 — 20 гномов)
 
 ```json
 [
   { "floor": 1,  "dwarfId": "d_brom" },
   { "floor": 1,  "dwarfId": "d_grim" },
   { "floor": 3,  "dwarfId": "d_thorvin" },
+  { "floor": 4,  "dwarfId": "d_bombur" },
+  { "floor": 5,  "dwarfId": "d_bifur" },
   { "floor": 6,  "dwarfId": "d_dvalin" },
+  { "floor": 7,  "dwarfId": "d_bofur_2" },
+  { "floor": 8,  "dwarfId": "d_balin" },
+  { "floor": 9,  "dwarfId": "d_bifur_2" },
   { "floor": 10, "dwarfId": "d_nori" },
-  { "floor": 15, "dwarfId": "d_bofur" }
+  { "floor": 11, "dwarfId": "d_bombur_2" },
+  { "floor": 12, "dwarfId": "d_dwalin_2" },
+  { "floor": 13, "dwarfId": "d_dori" },
+  { "floor": 14, "dwarfId": "d_nori_2" },
+  { "floor": 15, "dwarfId": "d_bofur" },
+  { "floor": 16, "dwarfId": "d_oin" },
+  { "floor": 17, "dwarfId": "d_gloin" },
+  { "floor": 18, "dwarfId": "d_balin_2" },
+  { "floor": 19, "dwarfId": "d_thorin" },
+  { "floor": 20, "dwarfId": "d_fili" }
 ]
 ```
 
-Примечание: floor в этой таблице сверяется с `meta.maxFloorEverReached` (§3.3.5.1), а не с floor текущего забега. `d_bofur` (floor 15) — осознанная мета-цель на несколько забегов подряд. Это не баг.
-
-#### 3.3.5.1. Триггер разблокировки
+#### §3.3.5.1. Триггер разблокировки
 
 ```
-При ВХОДЕ игрока на ЛЮБОЙ узел любого забега:
-  1. Обновить накопленный прогресс:
-       meta.maxFloorEverReached =
-         Math.max(meta.maxFloorEverReached, currentFloor)
-  2. Проверить разблокировки против накопленного прогресса:
-       for each entry in unlock table
-         where entry.floor <= meta.maxFloorEverReached:
-           if entry.dwarfId not in meta.unlockedDwarves:
-             meta.unlockedDwarves.push(entry.dwarfId)
-             → тост "Открыт гном: <имя>" (не блокирующий)
-  3. Сохранить meta немедленно (§2.6).
+При входе на узел floor = N:
+  1. meta.maxFloorEverReached = max(текущее, N + meta.bossesKilledTotal * 2)
+  2. Для entry, где entry.floor <= maxFloorEverReached:
+       a) Если entry.dwarfId в deadDwarves → SKIP
+       b) Если entry.dwarfId not in unlockedDwarves → добавить + тост
+  3. Сохранить meta.
 ```
 
-#### 3.3.5.2. Соответствие floor и depth
+#### §3.3.6. Equipment + Dwarf unlock
 
 ```
-Один забег имеет depth = 8–11 слоёв (§3.3.1); floor внутри забега
-растёт от 1 до depth и сбрасывается при старте нового забега.
-meta.maxFloorEverReached НЕ сбрасывается между забегами.
+При победе над elite:
+  - random equipment stage 2–3, rarity rare/epic
+
+При победе над обычным боссом:
+  - random equipment stage 3, rarity legendary/epic
+  - meta.bossesKilledTotal += 1
+  - random dwarf из неразблокированных:
+      available = allDwarves - unlockedDwarves
+      Если available.length > 0:
+        dwarf = random(available)
+        meta.unlockedDwarves.push(dwarf.id)
+        Показать "Открыт новый гном: <имя>"
+
+При победе над финальным боссом (e_forge_demon):
+  - meta.endlessUnlocked = true
+  - Показать "Бесконечный режим открыт!"
 ```
 
-#### 3.3.6. Equipment unlock
+#### §3.3.7. Награды по типам узлов (v6.8)
+
+```text
+ЗОЛОТО (run.gold, при победе в узле):
+  battle:  5 + floor × 2
+  elite:   10 + floor × 3
+  boss:    20 + depth × 2
+  event:   по событию (§6.5); shop/rest/forge: 0
+
+НАСЛЕДИЕ:
+  elite: +10 — ОДИН раз за забег (флаг run «наследие за элиту выдан»)
+  boss:  +50 и meta.bossesKilledTotal += 1
+  Конец забега: runLegacy = depth × 5 + бонусы (§6.4)
+
+ЛУТ (экран 5: выбор 1 из 2–3 предметов):
+  battle: выбор 1 из 2, common/rare по rollRarity(difficulty)
+  elite:  выбор 1 из 3, rare/epic, stage 2–3 (§3.3.6)
+  boss:   выбор 1 из 3, epic/legendary, stage 3 (§3.3.6)
+  event/shop/rest/forge: лут-выбор не генерируется
+```
+
+#### §3.3.8. Пример карты (depth 9, seed 42)
+
+```text
+depth = 9 (bossesKilledTotal = 1), seed = 42. Слои 0..8:
+
+слой 0:  [battle]                       ← старт, 1 узел
+слой 1:  [battle, event]                ← 2–4 узла
+слой 2:  [battle, shop, battle]
+слой 3:  [elite, battle]
+слой 4:  [battle, event, rest]          ← после elite слоя 3 elite запрещён
+слой 5:  [battle, forge]
+слой 6:  [battle, elite, battle]
+слой 7:  [shop, rest]                   ← depth-2: гарантированно shop/rest
+слой 8:  [boss e_golem]                 ← depth-1: цикл боссов §6.3.2
+
+Рёбра (linkLayers): слой 0 → оба узла слоя 1; 1–3 исходящих / 1–2 входящих;
+каждый узел слоя 6 имеет ребро в слой 7; слой 7 → [boss].
+validateMap: BFS от слоя 0 — все слои достижимы ✅;
+босс достижим из всех 3 узлов слоя 6 ✅.
+```
+
+---
+
+### §3.4. Run start (v6.7)
 
 ```
-При победе над elite: random equipment из stage 2–3 с rarity
-rare/epic → unlock.
-При победе над боссом: random equipment из stage 3 с rarity
-legendary/epic → unlock.
-UI: экран 10 → строка «Открыто: Башенный щит».
+1. Проверить meta.endlessUnlocked и выбор игрока:
+   Если выбран "Бесконечный забег" И endlessUnlocked:
+     run.isEndless = true
+     depth = 8 + meta.maxDepthEver
+     endlessFloor = 0
+   Иначе:
+     run.isEndless = false
+     depth = 8 + meta.bossesKilledTotal
+
+2. availableDwarves = unlockedDwarves - deadDwarves
+
+3. Если availableDwarves.length < 2:
+     meta.deadDwarves = []  (сброс)
+     availableDwarves = unlockedDwarves
+     Показать "Новое поколение гномов возродилось"
+
+4. Выбор 1–maxPartySize гномов из availableDwarves.
+
+5. Каждому — 1 случайный common item → run.inventory.
+
+6. gold = 0.
+
+7. map = generateMap(seed, depth).
+
+8. currentNodeId = map[0].id.
+
+9. Переход на экран 3.
 ```
 
-### 3.4. Run start
+---
 
-```
-1. Игрок выбирает от 1 до meta.maxPartySize гномов из unlockedDwarves.
-2. Каждому даётся 1 случайный common item → в run.inventory.
-3. gold = 0. inventory = [N common items, N = размер отряда].
-4. map = generateMap(seed, floor=1).
-5. currentNodeId = map[0].id (battle).
-6. Переход на экран 3. Игрок надевает предметы через drag&drop.
-```
-
-`maxSlots` НЕ влияет на размер стартового отряда — два независимых апгрейда в кузнице (§3.5).
-
-### 3.5. Экономика кузницы
-
-Экран 1 — единственное место траты legacy. Апгрейды — данные, не union-тип.
+### §3.5. Кузница
 
 ```typescript
 // /src/data/smithy.ts
@@ -915,7 +1336,7 @@ export interface SmithyUpgradeDef {
   name: string;
   effectPerLevel: string;
   baseCost: number;
-  maxLevel: number;   // Infinity для smithyLevel
+  maxLevel: number;
   iconId: string;
 }
 
@@ -936,7 +1357,7 @@ export const SMITHY_UPGRADES: SmithyUpgradeDef[] = [
 
 function purchaseUpgrade(meta: MetaState, def: SmithyUpgradeDef): MetaState {
   const currentLevel = meta[def.metaField];
-  const cost = upgradeCost(def.baseCost, currentLevel);   // §6.4
+  const cost = upgradeCost(def.baseCost, currentLevel);
   if (meta.legacy < cost || currentLevel >= def.maxLevel) return meta;
   return {
     ...meta,
@@ -946,140 +1367,262 @@ function purchaseUpgrade(meta: MetaState, def: SmithyUpgradeDef): MetaState {
 }
 ```
 
-#### 3.5.1. UI карточки апгрейда
+#### §3.5.1. UI карточки
 
 ```
-Экран 1 отображает SMITHY_UPGRADES.map(def => Card). Каждая карточка:
-  - Иконка def.iconId, 32×32, процедурная (§5.4).
-  - Название: def.name.
-  - Текущий уровень: "Ур. {currentLevel} / {maxLevel}" (для
-    smithyLevel с maxLevel=Infinity: "Ур. {currentLevel}").
-  - Эффект следующего уровня: def.effectPerLevel.
-  - Цена: "{cost} Наследия" либо "МАКС" если currentLevel>=maxLevel.
-  - Кнопка «Улучшить»: enabled если legacy>=cost && currentLevel<maxLevel;
-    disabled — серый, tooltip с причиной.
-  - Размер карточки: 280×140px (desktop), 160×120px (mobile, 2 колонки).
-  - Touch target кнопки: ≥ 44×44px.
-  - Contrast ratio текста ≥ 4.5:1.
+- Иконка 32×32
+- Название
+- Текущий уровень "Ур. X / Y"
+- Эффект следующего
+- Цена или "МАКС"
+- Кнопка «Улучшить»: enabled/disabled
+- Размер: 280×140 desktop, 160×120 mobile
+- Touch target ≥ 44×44
 ```
 
 ---
 
-## 4. UI/UX: 10 ЭКРАНОВ
+## §4. UI/UX: 9 ЭКРАНОВ
 
-| # | Экран | Ключевые элементы |
+| # | Экран | Элементы |
 |---|---|---|
-| 1 | Старт (Кузница) | Legacy counter, [Новый забег], 4 карточки апгрейдов (§3.5.1), счётчики unlocks |
-| 2 | Выбор отряда | Список unlocked dwarves, выбор 1–meta.maxPartySize, [В бой] |
-| 3 | Подготовка боя | 3 линии, drag&drop equip, инвентарь, gold, синергии, [В бой] |
-| 4 | Бой | Phaser canvas, HP-бары, speed controls (§4.2), [Авто], параллакс-фон (§5.2.1) |
+| 1 | Старт (Кузница) | Legacy counter, [Новый забег], [Бесконечный забег] (если unlocked), 4 карточки, счётчики unlocks, maxDepthEver |
+| 2 | Выбор отряда | Карточки гномов: имя (гномий шрифт), спрайт 96×96, характеристики иконками (❤️ HP, ⚔️ ATK, 🛡️ DEF, 👟 SPD), кнопка [Выбрать]. Счётчик «Выбрано X/Y» |
+| 3 | Подготовка боя | N позиций, drag&drop equip, инвентарь, gold, синергии, **превью врагов (типы без статов)**, [В бой] |
+| 4 | Бой | Phaser canvas, HP-бары, этаж, враги X/Y, параллакс-фон |
 | 5 | Награда | Выбор 1 из 2–3 предметов |
-| 6 | Карта забега | Граф узлов |
-| 7 | Инвентарь | Grid equip + drag на гнома, role-filter, вкладка «Шаблон» |
-| 8 | Событие | Текст + 2–3 кнопки-выбора |
-| 9 | Смерть гнома | Эпитафия + анимация возврата equip |
-| 10 | Итоги забега | Сводка, [В кузницу] |
+| 6 | Карта забега | Горизонтальный граф слоёв (§4.2), панели: золото / глубина / отряд |
+| 7 | Инвентарь | Grid equip + drag, role-filter, вкладка «Шаблон» |
+| 8 | Событие | Текст + 2–3 кнопки |
+| 9 | Итоги забега | Сводка, умершие гномы, maxDepthEver, [В кузницу]. Заголовок и эпитафия зависят от run.endReason (§4.3) |
 
-### 4.1. Объективные критерии UI
+### §4.1. Критерии UI
 
-- [ ] Contrast ratio ≥ 4.5:1 (WCAG AA)
+- [ ] Contrast ratio ≥ 4.5:1
 - [ ] Touch targets ≥ 44×44px
-- [ ] Layout grid = 8px baseline
+- [ ] Layout grid = 8px
 - [ ] No overflow на 667×375 и 1920×1080
-- [ ] Animations ≤ 300ms (non-blocking)
-- [ ] Colorblind-safe палитра (OKLCH)
-- [ ] Keyboard navigation для desktop
-- [ ] Upgrade cards (screen 1): 280×140px desktop / 160×120px mobile, 2 columns на mobile (§3.5.1)
-- [ ] Speed controls (screen 4): правый-верхний угол, surface ≥ 44×44px (§4.2)
+- [ ] Animations ≤ 300ms
+- [ ] Colorblind-safe (OKLCH)
+- [ ] Keyboard navigation
+- [ ] Upgrade cards: 280×140 / 160×120
+- [ ] Battle HUD: этаж, HP, враги X/Y
 
-### 4.2. Speed controls
+### §4.2. Экран «Карта забега» — layout (v6.8)
 
+```text
+DESKTOP 1920×1080:
+  Верхняя панель h=80: золото, глубина, отряд (иконки + HP)
+  Центр: горизонтальный граф слоёв слева направо (старт → босс)
+  Нижняя панель h=120: инвентарь / меню (инвентарь, кузница)
+
+MOBILE 667×375:
+  Панели h=60 / h=90, карта между ними
+  Граф: горизонтальная прокрутка слоёв слева направо
+
+УЗЛЫ:
+  Размер 96×96, иконка 64×64, обводка 4px
+  Состояния: пройден (тусклый) / текущий (пульс) /
+             доступный (активный) / будущий (затемнён)
+  Цвета по типам: battle серо-синий, elite фиолетовый, boss красный,
+                  shop жёлтый, rest зелёный, forge оранжевый, event голубой
+
+СВЯЗИ (рёбра графа):
+  Пройденный путь: 2px, тусклая
+  Доступные переходы из текущего узла: 4px, яркая
+  Остальные: 1px, затемнённая
+
+TOOLTIP по узлу: тип, сложность, награды (золото + лут §3.3.7)
+
+АНИМАЦИИ:
+  Выбор узла 200мс, появление слоя 300мс, hover 200мс,
+  прокрутка к текущему слою 400мс (исключение из ≤300мс)
+
+DoD §4.2: с любого доступного узла виден путь к боссу.
 ```
-Правый-верхний угол экрана 4, HTML/CSS-оверлей поверх canvas.
-×1/×2/×4, touch target ≥ 44×44px. Меняет только тайминг анимации
-Phaser — НЕ влияет на PRNG-seed и не меняет порядок/результат
-simulateTurn(). Determinism-тест (§7.2) не зависит от скорости.
-```
+
+### §4.3. Экран 9 «Итоги забега» — варианты финала (v6.9)
+
+Заголовок и эпитафия зависят от run.endReason:
+
+| endReason | Заголовок | Эпитафия | Иконка |
+|-----------|-----------|----------|--------|
+| 'victory' | "Победа!" | "Гномы вернулись с добычей." | золотая корона |
+| 'defeat' | "Поражение" | "Гномы пали в бою." | разбитый щит |
+| 'timeout_collapse' | "Обвал" | "Пещера обрушилась на глубине {floor}. Гномы погребены заживо." | обвал камней |
+| 'timeout_ancient' | "Пробуждение Древнего" | "Древний пробудился на глубине {floor}. Гномы пали перед тем, кто старше мира." | тень Древнего |
+| 'abandoned' | "Отступление" | "Гномы отступили. Глубины запомнят." | след на камне |
+
+Отдельно: под заголовком показать статистику:
+- Глубина: {floor}
+- Убито врагов: {kills}
+- Убито элит: {elitesKilled}
+- Получено Наследия: {legacy}
+- Открыто: {unlocks}
+- Погибли: {deadDwarves за забег}
 
 ---
 
-## 5. ВИЗУАЛ И ПРОЦЕДУРНЫЕ АССЕТЫ
+### §4.4. Экран 3 — превью врагов (v7.0)
 
-### 5.1. Стиль
+БЛОК «ВПЕРЕДИ»:
+  Расположение: верхняя часть экрана подготовки
+  Формат:
+    - Заголовок: «ВПЕРЕДИ»
+    - Список типов врагов: горизонтальный ряд
+    - Каждый тип: спрайт 96×96 + название (гномий шрифт)
+    - БЕЗ статов, БЕЗ количества, БЕЗ HP
 
-Пиксель-арт 32×32, тёплая подземная палитра (OKLCH: H=30–50, C=0.1–0.15, L=0.2–0.5). Все ассеты — только процедурная генерация через `scripts/gen-assets.ts`. Скачивание внешней графики запрещено.
+  Пример:
+    «ВПЕРЕДИ: [Орк] [Паук]»
 
-### 5.2. Минимальный набор ассетов
+ПРАВИЛА:
+- Показываются ТОЛЬКО уникальные типы (enemyTypes из node.data, §3.3.1)
+- Если 10 орков и 5 пауков → 2 карточки
+- Никаких статов, количества и числа подкреплений
+- Для elite и боссов — то же правило (уникальные типы)
 
-| Категория | Количество | Метод |
-|---|---|---|
-| Базовые тела гномов | 4 | процедурная генерация Canvas 2D |
-| Палитры (борода/кожа) | 8 | hue-shift |
-| Анимации на тело | 4 (idle/walk/attack/death) | spritesheet |
-| Тела врагов | 7 | силуэт + palette swap |
-| Иконки equip | 24 (§6.2) | 8 базовых SVG форм × вариации |
-| Иконки апгрейдов кузницы | 4 (§3.5.1) | процедурная генерация Canvas 2D |
-| Фон этажа (параллакс) | 5 слоёв × 3 набора | процедурный шум + градиент, §5.2.1 |
-| Частицы | 4 | Canvas 2D |
-| Звуки | 8 | WebAudio осцилляторы |
+### §4.5. Экран 2 — карточки гномов (v7.0)
 
-### 5.2.1. Parallax background
+ФОРМАТ КАРТОЧКИ:
+  - Имя гнома — гномий шрифт (font-runic)
+  - Спрайт 96×96
+  - Роль (Мечник/Лучник/…)
+  - Характеристики иконками: ❤️ HP · ⚔️ ATK · 🛡️ DEF · 👟 SPD
+  - Кнопка [Выбрать] = вся карточка (toggle); счётчик «Выбрано X/Y» в шапке экрана
+  - Блокировки: «Откроется на этаже N», «⚖️ Пал в Глубинах» — без изменений
 
-| Layer | Имя | Ширина×Высота | Scroll factor | Контент |
-|---|---|---|---|---|
-| 0 | bg_far | 2048×720 | 0.05 | силуэты дальних скал |
-| 1 | bg_mid_rock | 2048×720 | 0.15 | средние скальные формации |
-| 2 | bg_crystals | 2048×720 | 0.30 | светящиеся руны/кристаллы |
-| 3 | bg_near_rock | 2048×720 | 0.50 | ближние камни |
-| 4 | bg_fog | 2048×720 | 0.70 | дымка, alpha ≤ 0.3 |
+## §5. ВИЗУАЛ И ПРОЦЕДУРНЫЕ АССЕТЫ
 
-```
-Генерация: genLayer(seed, floorTier). floorTier:
-  1, если run.floor <= 3; 2, если run.floor <= 7; 3, если run.floor >= 8.
-При depth 8–11 все три tier достижимы в одном забеге.
-Бесшовность по X: alpha-blend края 64px.
-
-Рантайм: TileSprite на слой, tilePositionX += scrollSpeed *
-scrollFactor * dt. Слои 0–2 дрейфуют, 3–4 неподвижны. z-index — §3.1.1.
-```
-
-### 5.3. Физика (seeded)
+### §5.1. Стиль
 
 ```
-Matter.js solver инициализируется тем же seed. Ragdoll: hp ≤ 0 →
-constraint-based тело, velocity/angle из PRNG. Отскоки: импульс
-(dmg × 0.5, rand(seed, -π/6, π/6)).
+Пиксель-арт, 96×96 для персонажей. 32×32 для иконок.
+OKLCH H=30-50, C=0.1-0.15, L=0.2-0.5.
+Все ассеты — процедурно через scripts/gen-assets.ts.
 ```
 
-### 5.4. Asset pipeline
+### §5.2. Минимальный набор
+
+| Категория | Кол-во | Размер | Метод |
+|---|---|---|---|
+| Тела гномов | 4 | 96×96 | Canvas 2D |
+| Палитры | 8 | — | hue-shift |
+| Анимации гномов | 4 | 96×96 | spritesheet |
+| Тела врагов | 11 (v7.0: + e_archer_goblin, + e_shaman) | 96×96 | силуэт + palette |
+| Анимации врагов | 4 | 96×96 | spritesheet |
+| Иконки предметов | 24 | 32×32 | SVG |
+| Иконки кузницы | 4 | 32×32 | Canvas |
+| Параллакс | 5×3 | 2048×1080 | шум + градиент |
+| Частицы | 4 | 16×16 | Canvas |
+| Звуки | 8 | — | WebAudio |
+
+**11 тел врагов** (v7.0): + e_forge_demon, + e_ancient, + e_archer_goblin, + e_shaman.
+
+**ranged-спрайты (v7.0):** лучник — лук + колчан, шаман — посох + череп-амулет;
+палитры OKLCH: лучник H=60-80 (болотный), шаман H=280-300 (фиолетовый).
+
+**e_ancient (Древний) — особый спрайт (v6.9):**
+- Размер: 96×96 (стандартный)
+- Стиль: тёмный силуэт с светящимися глазами
+- Палитра: OKLCH H=250-270 (фиолетовый), C=0.2, L=0.1-0.2
+- Анимация: idle (4 кадра) + attack (5 кадров)
+- Особенность: при появлении экран темнеет, Древний светится
+
+### §5.2.1. Parallax
+
+| Layer | Имя | Размер | Scroll |
+|---|---|---|---|
+| 0 | bg_far | 2048×1080 | 0.05 |
+| 1 | bg_mid_rock | 2048×1080 | 0.15 |
+| 2 | bg_crystals | 2048×1080 | 0.30 |
+| 3 | bg_near_rock | 2048×1080 | 0.50 |
+| 4 | bg_fog | 2048×1080 | 0.70 |
+
+floorTier: 1 (≤3), 2 (≤7), 3 (≥8).
+
+### §5.3. Визуальные эффекты (Phaser tweens)
+
+```
+Отскок врага (гном бьёт):
+  tweens.add({ targets: enemySprite, x: x+100, duration: 200,
+               ease: 'Back.easeOut' });
+
+Отскок гнома (враг бьёт):
+  tweens.add({ targets: dwarfSprite, x: x-100, duration: 200,
+               ease: 'Back.easeOut' });
+
+Ragdoll врага:
+  tweens.add({ targets: enemySprite, rotation: PI*2, alpha: 0,
+               duration: 2000, ease: 'Cubic.easeIn',
+               onComplete: () => sprite.destroy() });
+
+Ragdoll гнома:
+  tweens.add({ targets: dwarfSprite, rotation: PI, y: y+50,
+               duration: 500, ease: 'Cubic.easeIn' });
+
+Удар (взмах):
+  tweens.add({ targets: dwarfSprite, scaleX: 1.2,
+               duration: 100, yoyo: true });
+
+Summon (финальный босс):
+  tweens.add({ targets: bossSprite, scaleX: 1.3, scaleY: 1.3,
+               duration: 500, yoyo: true });
+```
+
+### §5.4. Asset pipeline
 
 ```
 Формат: PNG atlas + JSON hash (Phaser 3 native).
-Кадр: 32×32 (гномы), 48×48 (враги), 16×16 (иконки equip),
-      32×32 (иконки кузницы).
-Анимации на тело: idle(4f), walk(6f), attack(5f), death(8f).
-Палитра: runtime через Canvas 2D (hue-shift).
-Загрузка: src/assets/loader.ts → this.load.atlas('dwarf_base', ...).
+Кадр: 96×96 (персонажи), 32×32 (иконки).
+Анимации: idle(4f), run(6f), attack(5f), death(8f).
+Палитра: runtime через Canvas 2D.
 Генерация: npm run gen:assets → /public/atlas/*.png + *.json.
-Скрипт ИДЕМПОТЕНТЕН: тот же seed → тот же байт-в-байт результат.
+```
+
+### §5.5. Гномий шрифт (v7.0)
+
+```
+font-runic — рунический дисплейный шрифт для имён гномов и заголовков.
+Применение:
+  - имена гномов на карточках экрана 2 и в бою;
+  - заголовки экранов (Сбор отряда, Рюкзак, Событие…);
+  - названия типов врагов в превью «ВПЕРЕДИ» (§4.4).
+Не применяется: к тексту правил, наград, событий — читаемость важнее стиля.
+Fallback-стек: 'Runic', 'Cinzel', serif — кириллица отображается,
+если глифа нет в рунном наборе.
 ```
 
 ---
 
-## 6. ДАННЫЕ: ТАБЛИЦЫ
+## §6. ДАННЫЕ
 
-### 6.1. Гномы (базовые)
+### §6.1. Гномы (20, v6.7)
 
 | ID | Имя | HP | ATK | DEF | SPD | roleBias |
 |---|---|---|---|---|---|---|
-| d_brom | Бром | 120 | 8 | 15 | 8 | tank |
-| d_grim | Грим | 100 | 12 | 8 | 10 | warrior |
-| d_thorvin | Торвин | 110 | 10 | 10 | 9 | support |
-| d_dvalin | Двалин | 130 | 7 | 18 | 7 | tank |
-| d_nori | Нори | 90 | 14 | 6 | 12 | ranged |
-| d_bofur | Бофур | 105 | 11 | 11 | 9 | mage |
+| d_brom | Бром | 120 | 8 | 15 | 60 | tank |
+| d_grim | Грим | 100 | 12 | 8 | 80 | warrior |
+| d_thorvin | Торвин | 110 | 10 | 10 | 70 | support |
+| d_bombur | Бомбур | 140 | 6 | 20 | 40 | tank |
+| d_bifur | Бифур | 95 | 13 | 7 | 85 | warrior |
+| d_dvalin | Двалин | 130 | 7 | 18 | 50 | tank |
+| d_bofur_2 | Бофур II | 100 | 15 | 5 | 90 | ranged |
+| d_balin | Балин | 115 | 9 | 12 | 75 | support |
+| d_bifur_2 | Бифур II | 105 | 12 | 10 | 80 | warrior |
+| d_nori | Нори | 90 | 14 | 6 | 100 | ranged |
+| d_bombur_2 | Бомбур II | 125 | 8 | 16 | 55 | tank |
+| d_dwalin_2 | Двалин II | 135 | 7 | 19 | 45 | tank |
+| d_dori | Дори | 95 | 14 | 6 | 95 | ranged |
+| d_nori_2 | Нори II | 85 | 15 | 5 | 105 | ranged |
+| d_bofur | Бофур | 105 | 11 | 11 | 70 | mage |
+| d_oin | Оин | 120 | 10 | 12 | 65 | warrior |
+| d_gloin | Глоин | 110 | 11 | 11 | 70 | support |
+| d_balin_2 | Балин II | 105 | 13 | 9 | 80 | warrior |
+| d_thorin | Торин | 130 | 12 | 14 | 55 | tank |
+| d_fili | Фили | 90 | 16 | 4 | 110 | ranged |
 
-### 6.2. Предметы (24) — 7 common, 9 rare, 4 epic, 4 legendary
+### §6.2. Предметы (24) — без изменений
 
 | ID | Имя | Slot | Role | ATK | DEF | HP | Effect | Rarity | Stage | Tags |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -1100,7 +1643,7 @@ constraint-based тело, velocity/angle из PRNG. Отскоки: импул�
 | e_swift_boots | Быстрые сапоги | trinket | any | — | — | — | aura_spd value=10 | rare | 2 | cloth |
 | e_healing_charm | Целительный амулет | trinket | support | — | — | — | hp_regen value=5 | rare | 2 | bone, runic |
 | e_vamp_blade | Клинок вампира | weapon | warrior | +15 | — | — | lifesteal value=50 | legendary | 2 | metal, runic |
-| e_war_drum | Барабан войны | trinket | support | — | — | — | aura_spd value=15 (target: back) | epic | 3 | wood |
+| e_war_drum | Барабан войны | trinket | support | — | — | — | aura_spd value=15 | epic | 3 | wood |
 | e_mithril_beard | Борода из мифрила | rune | any | +5 | +5 | +5 | extra_slot | legendary | 3 | metal, runic |
 | e_dragon_scale | Чешуя дракона | armor | tank | — | +20 | +30 | — | legendary | 3 | metal |
 | e_arcane_tome | Тайный фолиант | weapon | mage | +18 | — | — | double_strike value=50 | legendary | 3 | cloth, runic |
@@ -1108,67 +1651,209 @@ constraint-based тело, velocity/angle из PRNG. Отскоки: импул�
 | e_guardian_plate | Броня стража | armor | tank | — | +18 | +25 | aura_def value=10 | epic | 3 | metal |
 | e_hunter_bow | Лук охотника | weapon | ranged | +16 | — | — | pierce value=50 | epic | 3 | wood |
 
-Итого: 24 предмета — 7 common, 9 rare, 4 epic, 4 legendary. Предметов с тегом `metal`: 13 (синергия «Кузня», порог 3, реализуема).
+### §6.3. Enemy table
 
-### 6.3. Enemy seed table
+| Enemy ID | Name | HP | ATK | DEF | SPD | Effects | Boss | Elite |
+|---|---|---|---|---|---|---|---|---|
+| e_rat | Крыса | 10 | 2 | 0 | 80 | — | — | — |
+| e_goblin | Гоблин | 15 | 3 | 1 | 70 | — | — | — |
+| **e_archer_goblin** | **Гоблин-лучник** | **10** | **3** | **0** | **110** | **ranged (v7.0)** | — | — |
+| e_spider | Паук | 12 | 3 | 0 | 100 | poison 20% | — | — |
+| e_slime | Слизень | 25 | 2 | 3 | 40 | hp_regen 2 | — | — |
+| e_orc | Орк | 40 | 6 | 3 | 60 | — | — | ✅ |
+| **e_shaman** | **Шаман** | **20** | **2** | **2** | **80** | **ranged + poison 30% (v7.0)** | — | — |
+| e_golem | Голем | 80 | 8 | 6 | 40 | stun 20% | — | ✅ |
+| e_heart | Сердце Глубин | 200 | 12 | 8 | 50 | splash 30% | ✅ | — |
+| **e_forge_demon** | **Демон Кузни** | **500** | **20** | **12** | **40** | **summon value=10** | **✅ (финал)** | — |
+| **e_ancient** | **Древний** | **9999** | **999** | **999** | **10** | **—** | **✅ (только при таймауте)** | — |
 
-| Enemy ID | Name | HP | ATK | DEF | SPD | Pos | Effects | Boss | Elite |
-|---|---|---|---|---|---|---|---|---|---|
-| e_rat | Крыса | 30 | 5 | 2 | 8 | front | — | — | — |
-| e_goblin | Гоблин | 40 | 7 | 3 | 10 | front | — | — | — |
-| e_spider | Паук | 35 | 6 | 2 | 12 | mid | poison { value: 5, chance: 20 } | — | — |
-| e_slime | Слизень | 60 | 4 | 8 | 4 | front | hp_regen { value: 3 } | — | — |
-| e_orc | Орк | 80 | 12 | 6 | 7 | front | — | — | — |
-| e_golem | Голем | 150 | 15 | 12 | 5 | front | stun { value: 20 } | — | ✅ |
-| e_heart | Сердце Глубин | 300 | 20 | 15 | 6 | front | splash { value: 30 } | ✅ | — |
+**ОСОБЕННОСТЬ e_ancient (v6.9):**
+- Появляется ТОЛЬКО при таймауте в бою с боссом
+- Не имеет наград
+- Не считается в enemyCount
+- Не имеет хитбокса для атак гномов (нельзя ранить)
+- Атакует один раз (999 урона всем)
+- После атаки исчезает вместе с гномами
 
-Итого: 7 типов врагов (DoD: ≥ 5 ✅).
+**Сложность по слоям (v6.8):**
 
-#### 6.3.1. Spawn function
+| Слои (floor) | Контент |
+|---|---|
+| 1–3 | Стартовая зона: rat/goblin/spider/slime |
+| 4–7 | Растёт доля elite (nodeProb), золото по §3.3.7 |
+| 8–15 | Обычные боссы на слое depth-1: цикл [e_orc, e_golem, e_heart] (§6.3.2) |
+| 16–20 | Финальная зона: при bossesKilledTotal ≥ 5 босс depth-1 = e_forge_demon (HP 500, summon) |
+| 21+ | Бесконечный режим: пул как 11–15, босс каждые 3 слоя, scaleHP/ATK от depth (§3.3.1) |
+
+**Enemy pool по floor:**
+
+| Floor | Pool |
+|---|---|
+| 1 | e_rat, e_goblin |
+| 2 | e_rat, e_goblin, e_slime |
+| 3 | e_goblin, e_spider, e_slime, e_archer_goblin |
+| 4 | e_goblin, e_spider, e_slime, e_archer_goblin |
+| 5 | e_spider, e_slime, e_orc |
+| 6 | e_spider, e_orc, e_slime, e_shaman |
+| 7 | e_orc, e_spider, e_slime, e_shaman |
+| 8 | e_orc, e_golem, e_spider, e_archer_goblin |
+| 9 | e_orc, e_golem, e_slime, e_shaman |
+| 10 | e_golem, e_orc |
+| 11–15 | e_golem, e_orc, e_heart (как обычный враг) |
+| 16+ | e_golem, e_orc, e_heart; скейл по depth (§6.3.1) |
+
+**Число врагов:**
+
+```typescript
+enemyCount(floor, isElite) = Math.min(15, Math.floor(
+  5 + Math.log2(floor + 1) * 3 + (isElite ? 4 : 0)
+))
+```
+
+#### §6.3.1. spawnEnemy
 
 ```typescript
 function spawnEnemy(id: string, floor: number): Enemy {
   const template = ENEMY_TABLE[id];
   if (!template) throw new Error(`Unknown enemy: ${id}`);
-  const scale = 1 + floor * 0.1;
+  const scaleHP = 1 + floor * 0.08;
+  const scaleATK = 1 + floor * 0.04;  // v6.7: медленнее
   return {
-    id: template.id,
-    name: template.name,
-    baseHP: template.baseHP,
-    baseATK: template.baseATK,
-    baseDEF: template.baseDEF,
-    speed: template.speed,
-    effects: template.effects,
-    isBoss: template.isBoss,
-    isElite: template.isElite,
-    position: template.position,
-    currentHP: Math.round(template.baseHP * scale),
+    ...template,
+    currentHP: Math.round(template.baseHP * scaleHP),
+    baseHP: Math.round(template.baseHP * scaleHP),
+    baseATK: Math.round(template.baseATK * scaleATK),
     isAlive: true,
     statusEffects: []
   };
 }
+
+// v6.9: Особый случай для Древнего
+function spawnAncient(): Enemy {
+  return {
+    id: 'e_ancient',
+    name: 'Древний',
+    baseHP: 9999,
+    baseATK: 999,
+    baseDEF: 999,
+    speed: 10,
+    effects: [],
+    statusEffects: [],
+    isBoss: true,
+    isElite: false,
+    currentHP: 9999,
+    isAlive: true,
+  };
+}
 ```
 
-### 6.4. Формулы (финальные)
+#### §6.3.2. Boss for depth
 
 ```typescript
-const MAX_TURNS = 50;
-const MAX_TURNS_BOSS = 100;
-
-offlineGain(deltaHours, meta) =
-  Math.min(deltaHours, 8) * (1 + meta.smithyLevel * 0.5 + meta.offlineBonusPerHour * 0.1)
-
-runLegacy(run) =
-  run.floor * 5 + (run.bossKilled ? 50 : 0) + (run.elitesKilled > 0 ? 10 : 0)
-
-upgradeCost(baseCost, level) = baseCost * Math.pow(1.5, level)
-
-finalDmg(atk, def, pierce) = Math.max(1, atk - def * (1 - pierce))
-
-getNodeProbs(floor) = /* см. §3.3.1 */
+function bossForFloor(floor: number, meta: MetaState): Enemy {
+  // Финальный босс
+  if (meta.bossesKilledTotal >= 5 && floor === (8 + meta.bossesKilledTotal) - 1) {
+    return spawnEnemy('e_forge_demon', floor);
+  }
+  
+  // Обычные боссы — цикл
+  const bossPool = ['e_orc', 'e_golem', 'e_heart'];
+  const idx = (floor - 8) % 3;
+  const bossId = bossPool[Math.max(0, idx)];
+  return spawnEnemy(bossId, floor);
+}
 ```
 
-### 6.5. Event table (6 событий)
+### §6.4. Формулы (v6.7)
+
+**Ranged-враги (v7.0):**
+
+```typescript
+// Пошаговая адаптация (defects.md): реалтайм-штраф дальнего боя ×0.7,
+// позиционный множитель линии цели НЕ применяется (стрела достаёт по любой линии):
+rawDmg(ranged) = max(minDamage(floor), round((ATK − DEF×(1 − pierce)) × 0.7))
+// Выбор цели ranged-врага: провокация → случайный живой гном ИЗ ВСЕХ линий (тыл не укрытие)
+```
+
+**enemyTypes (v7.0 §3.3.1):** при создании боевого/элитного/боссового узла `enemyTypes = [...new Set(enemyIds)]` — уникальные типы волны для превью экрана 3 (§4.4).
+
+```typescript
+const FIXED_TIMESTEP_MS = 1000 / 60;
+const MAX_TICKS_PER_FRAME = 4;
+const MAX_BATTLE_TIME = 30000;
+const MAX_BATTLE_TIME_BOSS = 60000;
+const SPAWN_INTERVAL = 500;
+const SPAWN_INTERVAL_LATE = 300;    // floor ≥ 8
+const ATTACK_RANGE_BY_ROLE = {
+  tank: 80, warrior: 80, ranged: 300, mage: 250, support: 150
+};
+const ATTACK_COOLDOWN_BASE = {
+  tank: 600, warrior: 600, support: 600,
+  ranged: 400, mage: 400
+};
+const RANGED_DMG_MODIFIER = 0.5;    // v6.7: было 0.7
+const HP_REGEN_CAP = 3;             // v6.9: максимум HP/тик для гномов
+const ENEMY_HP_REGEN_CAP = 2;       // v6.9: максимум HP/тик для врагов
+const ENEMY_ATTACK_COOLDOWN = 1000;
+const FIELD_GROUND_Y = 900;
+const SPAWN_LEFT_X = 100;
+const SPAWN_RIGHT_X = 1820;
+const COLUMN_SPACING = 80;
+const MAX_DWARVES = 10;
+const BOUNCE_DISTANCE = 100;
+const ENDLESS_MAX_DEPTH = 100;      // v6.7
+
+function minDamage(floor: number): number {
+  return Math.max(1, Math.floor(floor / 2));
+}
+
+function finalDmg(atk, def, pierce, role, floor): number {
+  const raw = Math.max(minDamage(floor), atk - def * (1 - pierce));
+  return (role === 'ranged' || role === 'mage') 
+    ? raw * RANGED_DMG_MODIFIER 
+    : raw;
+}
+
+// v6.9: лимит регенерации, чтобы hp_regen не превосходил DPS
+function calculateHpRegen(unit: Dwarf | Enemy): number {
+  const isDwarf = 'equipment' in unit;
+  const cap = isDwarf ? HP_REGEN_CAP : ENEMY_HP_REGEN_CAP;
+
+  const effects = isDwarf
+    ? (unit as Dwarf).equipment.flatMap(e => e.effects)
+    : (unit as Enemy).effects;
+
+  const total = effects
+    .filter(e => e.type === 'hp_regen')
+    .reduce((sum, e) => sum + e.value, 0);
+
+  return Math.min(total, cap);
+}
+
+function getDepth(meta: MetaState, isEndless: boolean, endlessFloor: number): number {
+  return isEndless 
+    ? 8 + meta.maxDepthEver + endlessFloor
+    : 8 + meta.bossesKilledTotal;
+}
+
+function enemyCount(floor, isElite) {
+  return Math.min(15, Math.floor(
+    5 + Math.log2(floor + 1) * 3 + (isElite ? 4 : 0)
+  ));
+}
+
+offlineGain(deltaHours, meta) =
+  Math.min(deltaHours, 8) * (1 + meta.smithyLevel * 0.5 
+                             + meta.offlineBonusPerHour * 0.1)
+
+runLegacy(run) =
+  run.depth * 5 + (run.bossKilled ? 50 : 0) 
+  + (run.elitesKilled > 0 ? 10 : 0)
+
+upgradeCost(baseCost, level) = baseCost * Math.pow(1.5, level)
+```
+
+### §6.5. Events (6) — без изменений
 
 ```json
 [
@@ -1228,30 +1913,35 @@ getNodeProbs(floor) = /* см. §3.3.1 */
 ]
 ```
 
-**rarity++:** +25% ко всем stats предмета (atk, def, hp), +1 случайный effect из пула той же редкости. Поле `stage` НЕ меняется.
+**Dwarf pool для ev_lost_dwarf:**
 
-**node:replace_battle:** текущий узел заменяется на battle-узел без награды; игрок обязан пройти бой, потом продолжает с того же места карты.
+```
+available = unlockedDwarves - deadDwarves - currentParty
+Если available.length > 0:
+  dwarf = random(available)
+Иначе: опция disabled
+```
 
-### 6.6. Synergy table (4 синергии)
+### §6.6. Synergies (4) — без изменений
 
 ```json
 [
   {
     "id": "syn_wall",
     "name": "Стена",
-    "condition": { "type": "count_role", "role": "tank", "count": 2, "line": "front" },
+    "condition": { "type": "count_role", "role": "tank", "count": 2 },
     "effect": { "type": "buff_def", "value": 20, "target": "tank" }
   },
   {
     "id": "syn_volley",
     "name": "Залп",
-    "condition": { "type": "count_role", "role": "ranged", "count": 2, "line": "back" },
+    "condition": { "type": "count_role", "role": "ranged", "count": 2 },
     "effect": { "type": "buff_atk", "value": 15, "target": "ranged" }
   },
   {
     "id": "syn_fury",
     "name": "Ярость",
-    "condition": { "type": "combo", "roles": ["warrior", "mage"], "sameLine": true },
+    "condition": { "type": "adjacent_roles", "roles": ["warrior", "mage"] },
     "effect": { "type": "buff_atk", "value": 25, "target": "warrior" }
   },
   {
@@ -1265,43 +1955,30 @@ getNodeProbs(floor) = /* см. §3.3.1 */
 
 ---
 
-## 7. ТЕСТИРОВАНИЕ И ВЕРИФИКАЦИЯ
+## §7. ТЕСТИРОВАНИЕ
 
-### 7.1. Headless-тесты (Playwright)
+### §7.1. Headless-тесты
 
 ```
-ВНИМАНИЕ: §7.1 НЕ применяется до завершения Фазы 2.
-До этого момента tutorial-run.spec.ts не пишется.
-На Фазе 2 после реализации simulator.ts агент возвращается к §7.1.
+§7.1 НЕ применяется до завершения Фазы 2.
 
-Обязательный сценарий tutorial-run.spec.ts (seed=42, scripted choices
-через Choice[], применяются в simulateRun(), §3.1.8).
+tutorial-run.spec.ts (seed=42):
+1. Кузница (скрин)
+2. Выбор отряда → Бром + Грим (скрин)
+3. Экипировка → drag&drop (скрин)
+4. Бой 1 → непрерывный поток врагов (скрин + FPS)
+5. После победы: экран Награды → Карта забега → возврат в Кузницу
+6. Закрытие → reopen через Date.now() + 3600000 → offline проверен
+7. 0 console errors
+8. FPS ≥ 30 на viewport 667×375
 
-Порядок:
-  1. Реализовать /src/battle/simulator.ts (Фаза 2).
-  2. Прогнать simulateRun(42), зафиксировать факт (кто выжил/умер,
-     на каком узле) в progress.md как "seed=42 reference trace".
-  3. Написать tutorial-run.spec.ts со scripted choices, следующими
-     из зафиксированного трейса.
-  4. Если после Фазы 6 трейс изменился — обновить сценарий,
-     зафиксировать в defects.md как ожидаемое изменение.
-
-Шаблон (шаги 1–4, 6–8 фиксированы; шаг 5 — по факту прогона):
-  Seed: 42
-  Отряд: Бром (tank) + Грим (warrior)
-  Проверки:
-    1. Запуск → стартовый экран (скрин)
-    2. Выбор отряда → Бром + Грим (скрин)
-    3. Экипировка → drag&drop (скрин)
-    4. Бой 1 → результат по факту симуляции (скрин + FPS check)
-    5. [заполняется по факту прогона simulateRun(42)]
-    6. Закрытие → reopen через Date.now() + 3600000 (mock) →
-       offline legacy проверен
-    7. 0 console errors
-    8. FPS ≥ 30 на viewport 667×375
+Дополнительно (v6.7):
+9. Финальный босс доступен после 5+ побед
+10. Бесконечный режим открывается
+11. Воскрешение в бесконечном режиме
 ```
 
-### 7.2. Determinism test
+### §7.2. Determinism test
 
 ```typescript
 test('determinism', async () => {
@@ -1311,64 +1988,62 @@ test('determinism', async () => {
 });
 ```
 
-### 7.3. Agent-критик (объективный)
+### §7.3. Agent-критик
 
-После каждого модуля: Playwright-скрины затронутых экранов → автопроверка (contrast, touch targets, overflow, grid) → чеклист §4.1 пройден → accepted → progress.md. Если нет → ranked defect list → возврат строителю.
+Скрины → автопроверка (contrast, touch targets, overflow, grid) → 
+чеклист §4.1 → accepted → progress.md.
 
-### 7.4. Video acceptance
+### §7.4. Video acceptance
 
 ```typescript
-// tests/playwright/tutorial-run.spec.ts
 import { getVideoDurationInSeconds } from 'get-video-duration';
 import fs from 'node:fs';
 
-// после завершения теста:
 const videoPath = await page.video()?.path();
-if (!videoPath) throw new Error('No video recorded');
+if (!videoPath) throw new Error('No video');
 
-// Проверка duration
 const duration = await getVideoDurationInSeconds(videoPath);
-expect(duration).toBeGreaterThanOrEqual(180);   // ≥ 3 мин
-expect(duration).toBeLessThanOrEqual(360);      // ≤ 6 мин
+expect(duration).toBeGreaterThanOrEqual(180);
+expect(duration).toBeLessThanOrEqual(360);
 
-// Проверка размера
 const size = fs.statSync(videoPath).size;
-expect(size).toBeGreaterThan(1_000_000);        // > 1 MB
-
-// Сохранить с timestamp
-const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-await page.video()?.saveAs(`videos/tutorial-run-${timestamp}.webm`);
+expect(size).toBeGreaterThan(1_000_000);
 ```
 
-### 7.5. Balance test (scripted greedy AI)
+### §7.5. Balance test
 
 ```
-aiPolicy: 'greedy' в simulateRun() (§3.1.8):
-  1. Выбирает предмет с highest rarity.
-  2. Танков ставит в front, ranged/mage в back.
-  3. В событиях — опция с максимальным expected value.
-  4. В shop покупает, если gold ≥ цена.
-  5. В rest — heal, если avg HP < 60%, иначе remove debuff.
+aiPolicy: 'greedy':
+  1. Highest rarity item
+  2. Использовать автоматическую сортировку §3.1.1
+  3. В событиях — max expected value
+  4. В shop — если gold ≥ цена
+  5. В rest — heal, если avg HP < 60%
 
-Прогон: simulateRun(seed, { aiPolicy: 'greedy' }) для seed = 1..10.
+Прогон: simulateRun(seed, {aiPolicy:'greedy'}) для seed = 1..10.
 Acceptance: 40–60% win rate.
+
+Дополнительно:
+- Проверить: 20 гномов разблокируются за 15-20 забегов
+- Проверить: финальный босс достижим за 20-30 забегов
+- Проверить: бесконечный режим — depth 100 достижим
 ```
 
 ---
 
-## 8. ПРОЦЕСС РАЗРАБОТКИ (7 ФАЗ)
+## §8. ПРОЦЕСС РАЗРАБОТКИ (7 фаз)
 
 | # | Фаза | Deliverables | Acceptance |
 |---|---|---|---|
-| 1 | Архитектура + бюджет | architecture.md (§0.4), core/types.ts, package.json (§2.9), tsconfig.json, vite.config.ts, index.html (§2.8), src/main.ts (§2.8). ШАГ 0: замер baseline bundle ДО кода фич. (1) `npm install phaser matter-js`; (2) `npm run build`; (3) Замерить .js gzip через Node.js `zlib` (скрипт см. сразу после таблицы); (4) Если exit code ≠ 0 → STOP, BLOCKER в defects.md, предложить решение БЕЗ смены стека. | tsc --noEmit passes; 100% интерфейсов §2.3; unit-тест PRNG; мок-симуляция «1 гном vs 1 крыса → победа»; bundle-baseline.txt создан; скрин «Phase 1 OK»; git tag phase-1-accepted |
-| 2 | Ядро + Бой | core/, battle/ (simulateTurn + simulateRun) | Determinism test passes; Playwright: dwarf vs rat; скрин боя; seed=42 reference trace в progress.md; git tag phase-2-accepted |
-| 3 | Roguelite | progression/, economy/ (§3.5 + §3.5.1) | Playwright: complete run from start to boss; скрин карты; скрин кузницы с 4 карточками; git tag phase-3-accepted |
-| 4 | UI | ui/ (10 экранов + параллакс §5.2.1 + speed controls §4.2) | Скрины всех экранов, 667×375 + 1920×1080; чеклист §4.1; параллакс на видео; git tag phase-4-accepted |
-| 5 | Idle + Persistence | idle/, persistence/ | Offline 8h симуляция; localStorage roundtrip; скрин reopen; git tag phase-5-accepted |
-| 6 | Балансировка | data/ tuning | 10 прогонов simulateRun(seed, greedy) → 40–60% win rate; если трейс seed=42 изменился — обновить сценарий + defects.md; git tag phase-6-accepted |
-| 7 | Финализация | интеграция, smoke-тест, README | Все пункты §9 ✅; видео в /videos/ (проверено через get-video-duration); итоговая проверка bundle < 5MB gzip; git tag phase-7-accepted |
+| 1 | Архитектура + бюджет | architecture.md, core/types.ts, package.json, tsconfig.json, vite.config.ts, index.html, src/main.ts. ШАГ 0: `npm install phaser`, `npm run build`, замер через Node zlib. | tsc --noEmit; 100% §2.3; unit-тест PRNG; мок «1 гном vs 1 крыса»; bundle-baseline.txt; скрин «Phase 1 OK»; git tag phase-1-accepted |
+| 2 | Ядро + Бой | core/, battle/ (simulateBattleTick, simulateBattle, simulateRun, createBattleState) | Determinism test; Playwright: dwarf vs rat; скрин боя; seed=42 trace; git tag phase-2-accepted |
+| 3 | Roguelite | progression/, economy/ | Playwright: run to boss; скрин карты; скрин кузницы; git tag phase-3-accepted |
+| 4 | UI | ui/ (9 экранов + параллакс + tweens) | Скрины всех экранов; чеклист §4.1; git tag phase-4-accepted |
+| 5 | Idle + Persistence | idle/, persistence/ | Offline 8h; localStorage roundtrip; скрин reopen; git tag phase-5-accepted |
+| 6 | Балансировка | data/ tuning | 10 прогонов greedy → 40–60% win rate; git tag phase-6-accepted |
+| 7 | Финализация | интеграция, smoke, README | Все пункты §9 ✅; видео; bundle < 5 MB; git tag phase-7-accepted |
 
-**Скрипт замера для Шага 0 (выполняется через `node -e` или как отдельный .js файл):**
+**Скрипт замера bundle (Шаг 0 Фазы 1):**
 
 ```javascript
 const fs = require('fs');
@@ -1393,11 +2068,10 @@ for (const f of files) {
 const mb = (total / 1024 / 1024).toFixed(2);
 const headroom = (5 - mb).toFixed(2);
 
-// Получить текущий commit hash (с fallback, если git недоступен)
 let commit = 'no-git';
 try {
   commit = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
-} catch (e) { /* git недоступен — оставляем fallback */ }
+} catch (e) {}
 
 const line = 'Baseline bundle (gzip): ' + mb + ' MB / 5 MB budget\n' +
              'Headroom: ' + headroom + ' MB\n' +
@@ -1415,43 +2089,66 @@ if (parseFloat(mb) > 5) {
 }
 ```
 
-**Правило:** фаза N+1 не начинается, пока фаза N не принята. Любое отклонение от стека/бюджета фиксируется в defects.md согласно §0 — без исключений.
-
 ---
 
-## 9. ФИНАЛЬНЫЙ ЧЕКЛИСТ (Definition of Done)
+## §9. ФИНАЛЬНЫЙ ЧЕКЛИСТ (Definition of Done)
 
-**Игровые критерии (14):**
-- [ ] Стек соответствует §2.1 без отклонений (Phaser 3 + Matter.js)
-- [ ] Tutorial run проходим от старта до босса (видео в /videos/)
-- [ ] Смерть гнома перманентна, equip возвращается в инвентарь
-- [ ] Мета-сохранение между сессиями (localStorage + Date.now())
-- [ ] Offline income работает после симуляции 8 часов
-- [ ] 3 auto-механики разблокируются по runCount (3/5/7)
-- [ ] Кузница: 4 апгрейда с рабочей стоимостью, legacy тратится
-- [ ] ≥ 6 гномов, ≥ 20 предметов (все с непустыми tags), ≥ 5 врагов
-- [ ] Синергии работают (4 типа, включая «Кузня» по тегам, стакаются)
-- [ ] Параллакс-фон: 5 слоёв, разная скорость дрейфа, 3 набора
-- [ ] UI на 667×375 и 1920×1080 без overflow
+**Игровые критерии (26):**
+- [ ] Стек: Phaser 3 + Phaser tweens (без Matter.js)
+- [ ] Tutorial run: старт → босс (видео)
+- [ ] Смерть гнома перманентна (deadDwarves), экипировка сохраняется в meta.unlockedEquipment
+- [ ] deadDwarves НЕ воскрешаются при обычных забегах
+- [ ] Мета-сохранение (localStorage + Date.now())
+- [ ] Offline income (8h симуляция)
+- [ ] 3 auto-механики (3/5/7)
+- [ ] Кузница: 4 апгрейда
+- [ ] **20 гномов, разблокировка по depth**
+- [ ] 24 предмета, ≥ 5 обычных врагов
+- [ ] Синергии (4 типа)
+- [ ] Вид сбоку, гномы бегут, непрерывный поток врагов
+- [ ] Pierce работает в формуле урона
+- [ ] Ranged/mage стреляют с 300/250 px, cooldown 400 мс, урон ×0.5
+- [ ] Явный taunt (magnet_shield) перебивает неявный
+- [ ] isBossFight корректно определяет лимит времени
+- [ ] isBossFight устанавливается в createBattleState
+- [ ] tauntMemory работает (2 сек после смерти)
+- [ ] **Growing Depth: depth = 8 + bossesKilledTotal**
+- [ ] **Финальный босс e_forge_demon (HP 500)**
+- [ ] **Бесконечный режим открывается после финала**
+- [ ] **Воскрешение в бесконечном режиме при смерти всех**
+- [ ] **minDamage растёт с floor**
+- [ ] **scaleATK растёт медленнее (0.04 vs 0.08)**
+- [ ] **Карта v6.8: босс достижим из всех узлов предбоссового слоя (validateMap), слой depth-2 — shop/rest**
+- [ ] **Награды по типам узлов §3.3.7; выход из бесконечного: abandoned / victory_endless (depth > 100)**
+- [ ] UI на 667×375 и 1920×1080
 - [ ] FPS ≥ 30 mobile / ≥ 60 desktop
-- [ ] Speed controls не влияют на детерминизм боя
-- [ ] Разблокировка гномов работает через maxFloorEverReached
+- [ ] Fixed timestep 60 Hz, детерминизм сохранён
+- [ ] simulateBattle (headless) работает
+
+**Критерии особого финала v6.9 (7):**
+- [ ] Timeout в бою: endReason устанавливается корректно (collapse/ancient)
+- [ ] Визуальная анимация таймаута: тряска, камни, гул (за 5 сек до)
+- [ ] Обвал: все юниты исчезают, экран темнеет (обычный бой, elite)
+- [ ] Древний: появляется, убивает всех одним ударом (босс)
+- [ ] Экран 9: заголовок и эпитафия зависят от endReason
+- [ ] e_ancient: спрайт 96×96 создан, не имеет хитбокса
+- [ ] hp_regen: cap 3 для гномов, 2 для врагов, бой всегда завершается победой
 
 **Процессные критерии (8):**
-- [ ] 0 console errors во всём прогоне
-- [ ] Скрины всех 10 экранов в /screenshots/
-- [ ] Determinism test: simulateRun(seed) → identical RunState
-- [ ] Balance pass: 10 прогонов (greedy AI) → 40–60% win rate
-- [ ] Все ассеты процедурно сгенерированы
-- [ ] defects.md содержит запись о каждом отклонении
-- [ ] git tag для каждой из 7 принятых фаз
+- [ ] 0 console errors
+- [ ] Скрины всех 9 экранов
+- [ ] Determinism test
+- [ ] Balance: 10 прогонов → 40–60% win rate
+- [ ] Все ассеты процедурно
+- [ ] defects.md
+- [ ] git tag для 7 фаз
 - [ ] architecture.md соответствует §0.4
 
-**Итого: 22/22 обязательны.** Провал любого = провал финальной приёмки.
+**Итого: 38/38 обязательны.**
 
 ---
 
-## 10. ФОРМАТ ВЫВОДА
+## §10. ФОРМАТ ВЫВОДА
 
 ```
 /dwarves-and-depths/
@@ -1467,16 +2164,13 @@ if (parseFloat(mb) > 5) {
     /core  /battle  /economy  /progression
     /ui  /data  /idle  /persistence  /assets
     main.ts
-  /scripts/
-    gen-assets.ts
-  /tests/
-    /unit/*.test.ts
-    /playwright/*.spec.ts
+  /scripts/gen-assets.ts
+  /tests/unit/*.test.ts
+  /tests/playwright/*.spec.ts
   /screenshots/
   /videos/
-  /checkpoints/        (только если git недоступен)
-  /public/
-    /atlas/
+  /checkpoints/
+  /public/atlas/
   index.html
   package.json
   tsconfig.json
@@ -1488,12 +2182,12 @@ if (parseFloat(mb) > 5) {
 
 ---
 
-## 11. ФИНАЛЬНОЕ ПРАВИЛО
+## §11. ФИНАЛЬНОЕ ПРАВИЛО
 
 ```
 Ничего не считается работающим, пока не увидено и не измерено.
-Ничего не считается соответствующим ТЗ, пока отклонение (если оно
-случилось) не зафиксировано в defects.md.
+Ничего не считается соответствующим ТЗ, пока отклонение не 
+зафиксировано в defects.md.
 
 Цепочка для каждой фичи:
   1. Реализована
@@ -1503,7 +2197,66 @@ if (parseFloat(mb) > 5) {
   5. Объективный чеклист UI пройден
   6. Только тогда → progress.md с хешем коммита и ссылкой на скрин
 
-Остановка запрещена, пока все 22 пункта §9 не будут ✅.
+Остановка запрещена, пока все 38 пунктов §9 не будут ✅.
 Стоп-фраза §0 имеет приоритет выше этого правила.
 ```
 
+---
+
+## 📊 Сводка изменений v6.6 → v6.7
+
+| # | Проблема v6.6 | Решение v6.7 | Где |
+|---|---|---|---|
+| 🔴1 | 6 гномов, все умирают | **20 гномов** | §6.1, §3.3.5 |
+| 🔴2 | Нет финала | **Финальный босс e_forge_demon** | §1.1, §6.3 |
+| 🔴3 | Нет бесконечного режима | **Endless mode после финала** | §1.1, §3.3.1 |
+| 🔴4 | Все умерли — игра заканчивается | **Сброс deadDwarves при `< 2`** | §3.4 |
+| 🟡5 | depth не растёт | **Growing Depth: 8 + bossesKilledTotal** | §3.3.1 |
+| 🟡6 | Ranged/mage слишком сильны | **RANGED_DMG_MODIFIER = 0.5** | §6.4 |
+| 🟡7 | Танк непробиваем | **minDamage растёт с floor** | §6.4 |
+| 🟡8 | ATK растёт как HP | **scaleATK = 0.04 (было 0.08)** | §6.3.1 |
+| 🟢9 | Enemy count > 15 | **Cap = 15** | §6.4 |
+| 🟢10 | Spawn медленный на поздних | **SPAWN_INTERVAL_LATE = 300** | §6.4 |
+| 🟢11 | Нет рекорда | **maxDepthEver** | §2.3, §3.3.1 |
+
+---
+
+---
+
+## 📊 Сводка изменений v6.7 → v6.8
+
+| # | Было (v6.7) | Стало (v6.8) | Где |
+|---|---|---|---|
+| 🔴1 | Генерация карты — 8 строк тезисов | Детальная: 2–4 узла, depth-2 shop/rest, bipartite, BFS, seed+1 + псевдокод | §3.3.1 |
+| 🔴2 | Экран 6: «Граф узлов» | Детальная строка + layout экрана карты | §4, §4.2 |
+| 🟡3 | Бесконечный режим — 4 строки | depth-формула, боссы каждые 3 слоя, scale, выходы | §3.3.1 |
+| 🟡4 | Пул врагов floor 1–11+ | Таблица сложности по слоям + пул 1–16+ | §6.3 |
+| 🔴5 | Награды не специфицированы | Награды по типам узлов | §3.3.7 |
+| 🟢6 | Нет примера карты | Пример depth 9 seed 42 | §3.3.8 |
+| 🟢7 | DoD 32 пункта | DoD 34 пункта | §9 |
+
+---
+
+## 📊 Сводка изменений v6.8 → v6.9
+
+| # | Проблема | Решение | Где |
+|---|---|---|---|
+| 🔴1 | Бой по таймауту — просто "поражение" | Эпичный финал: обвал / Древний | §1, §3.1.1 |
+| 🔴2 | Игрок не понимает, почему проиграл | endReason + разный текст на экране 9 | §2.3, §4.3 |
+| 🟡3 | hp_regen может быть > DPS | Cap: 3 для гномов, 2 для врагов | §6.4 |
+| 🟢4 | Нет нового контента для таймаута | Новый враг e_ancient | §6.3, §5.2 |
+
+---
+
+**ТЗ v6.9 готово к запуску. Копируйте в PROMPT.md репозитория.**
+---
+
+## §9.1. DoD v7.0 (дополнительные критерии)
+
+- [ ] `AttackType` ('melee' | 'ranged') в `Enemy` и `Combatant`; attackRange: 80 melee / 260 ranged
+- [ ] Новые враги `e_archer_goblin` (floor 3+) и `e_shaman` (floor 6+) — ranged, в пулах §6.3
+- [ ] Ranged-враги: урон ×0.7, без позиционного множителя линии цели; цель — любой живой гном (тыл не укрытие)
+- [ ] `RunNode.data.enemyTypes = [...new Set(enemyIds)]` для battle/elite/boss (§3.3.1)
+- [ ] Экран 3: блок «ВПЕРЕДИ» — уникальные типы, спрайт + название (гномий шрифт), БЕЗ статов и количества (§4.4)
+- [ ] Экран 2: карточки гномов — имя гномьим шрифтом, спрайт 96×96, статы иконками ❤️⚔️🛡️👟 (§4.5)
+- [ ] Win rate на seeds 1..10 остаётся в коридоре 40–60% после добавления ranged-врагов
