@@ -10,10 +10,16 @@ declare module 'bun:test' {
     toEqual(expected: unknown): void;
     toBeGreaterThan(expected: number): void;
     toBeGreaterThanOrEqual(expected: number): void;
+    toBeLessThan(expected: number): void;
     toBeLessThanOrEqual(expected: number): void;
     toContain(expected: unknown): void;
+    toMatch(regexp: RegExp): void;
     toBeTruthy(): void;
     toBeFalsy(): void;
+    toBeNull(): void;
+    toBeUndefined(): void;
+    toBeDefined(): void;
+    toHaveLength(length: number): void;
     readonly not: ReturnType<typeof expect> extends infer E ? E : never;
   };
 }

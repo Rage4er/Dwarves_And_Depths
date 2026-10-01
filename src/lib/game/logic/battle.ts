@@ -122,7 +122,7 @@ export function createBattle(
       : 'battle';
   const groupIds: EnemyKind[] = enemyIds.length
     ? (enemyIds as EnemyKind[])
-    : spawnGroup(mulberry32(seed ^ 0x5f3759df), floor, kind).map((e) => e.id);
+    : (spawnGroup(mulberry32(seed ^ 0x5f3759df), floor, kind).map((e) => e.id) as EnemyKind[]);
   // босс — соло (его поток — summon, §2.3); обычный бой/элита — передовой отряд + резерв подкреплений
   const front = kind === 'boss' ? groupIds.length : Math.min(WAVE_FRONT, groupIds.length);
   const foes = groupIds.slice(0, front).map((id, i) => toFoeCombatant(spawnEnemy(id, floor, i), i));

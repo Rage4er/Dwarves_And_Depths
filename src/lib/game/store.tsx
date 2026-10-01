@@ -864,6 +864,7 @@ export function normalizeRun(raw: RunState): RunState {
     eliteLegacyGranted: raw.eliteLegacyGranted === true,
     bossesKilled: Number.isFinite(raw.bossesKilled) && raw.bossesKilled > 0 ? raw.bossesKilled : 0,
     endReason: raw.endReason ?? null, // v6.9: старый сейв без endReason → null
+    bonusLegacy: Number.isFinite(raw.bonusLegacy) && raw.bonusLegacy > 0 ? raw.bonusLegacy : 0, // §6.5
   };
 }
 

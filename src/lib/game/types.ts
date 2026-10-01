@@ -138,6 +138,7 @@ export interface RunState {
   endlessFloor: number; // v6.8: 0 на старте бесконечного, +1 с каждым пройденным слоем
   eliteLegacyGranted: boolean; // v6.8 §3.3.7: +10 наследия за элиту — один раз за забег
   endReason: BattleEndReason | null; // v6.9 §4.3: причина финала последнего боя (экран 9)
+  bonusLegacy: number; // §6.5: наследие, накопленное событиями забега (награда kind: 'legacy')
 }
 
 export interface Choice {

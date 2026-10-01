@@ -18,16 +18,6 @@ export function GameRoot() {
   const { state, dispatch } = useGame();
   const [offlineSeen, setOfflineSeen] = useState(false);
 
-  useEffect(() => {
-    const beforeUnload = () => {
-      try {
-        localStorage.setItem('gnomes_seen_v1', String(Date.now()));
-      } catch { /* ignore */ }
-    };
-    window.addEventListener('beforeunload', beforeUnload);
-    return () => window.removeEventListener('beforeunload', beforeUnload);
-  }, []);
-
   // звук при появлении тостов (разблокировки §3.3.5.1)
   useEffect(() => {
     if (state.toasts.length > 0) playSfx('levelup');

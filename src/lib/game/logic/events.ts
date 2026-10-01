@@ -13,10 +13,6 @@ export interface EventOutcome {
   replaceWithBattle: boolean;
 }
 
-function sumGold(run: RunState): number {
-  return run.gold;
-}
-
 function firstInventoryItem(run: RunState): Equipment | null {
   return run.inventory[0] ?? null;
 }
@@ -126,7 +122,7 @@ export function applyEventChoice(
         break;
       }
       case 'gold_gamble': {
-        if (sumGold(run) >= reward.stake || run.gold >= reward.stake) {
+        if (run.gold >= reward.stake) {
           if (rng() * 100 < reward.chance) {
             run.gold += reward.win - reward.stake;
             messages.push(`Удача! +${reward.win - reward.stake} золота`);
@@ -148,8 +144,8 @@ export function applyEventChoice(
         break;
       }
       case 'legacy': {
-        messages.push(`+${reward.amount} наследия (в конце забега)`);
-        run.floor += 0;
+        run.bonusLegacy += reward.amount;
+        messages.push(`+${reward.amount} наследия (учтено при подведении итогов)`);
         break;
       }
       case 'hp_all_gamble': {

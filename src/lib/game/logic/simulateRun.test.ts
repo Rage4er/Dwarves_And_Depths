@@ -13,10 +13,13 @@ import {
   mapDepth,
   newRun,
 } from './run';
-import { DEFAULT_META, normalizeMeta } from '../store';
+import { DEFAULT_META, normalizeMeta, normalizeRun } from '../store';
 import { nodeGold } from '../data/enemies';
 import type { MetaState } from '../types';
 import { DWARF_TABLE } from '../data/dwarves';
+import { applyEventChoice } from './events';
+import { eventById } from '../data/events';
+import { mulberry32 } from '../rng';
 
 function testMeta(overrides: Partial<MetaState> = {}): MetaState {
   return {
@@ -180,5 +183,33 @@ describe('v6.8 перманентная смерть и миграция (§3.1.
     expect(meta.deadDwarves).toEqual([]);
     expect(meta.maxDepthEver).toBe(0);
     expect(meta.endlessUnlocked).toBe(false);
+  });
+
+  test('normalizeRun: старый сейв без bonusLegacy получает 0', () => {
+    const run = newRun(9, testMeta(), ['d_brom']);
+    const old = { ...run } as MetaState & typeof run;
+    delete (old as { bonusLegacy?: number }).bonusLegacy;
+    expect(normalizeRun(old).bonusLegacy).toBe(0);
+    expect(normalizeRun(run).bonusLegacy).toBe(0);
+  });
+});
+
+describe('§6.5 награда наследия из события', () => {
+  test('«Дать 5 золота» в ev_lost_dwarf списывает золото и начисляет bonusLegacy', () => {
+    const run = newRun(42, testMeta(), ['d_brom', 'd_grim']);
+    run.gold = 30;
+    const def = eventById('ev_lost_dwarf');
+    expect(def).not.toBeNull();
+    if (!def) return;
+    const outcome = applyEventChoice(run, def, 1, mulberry32(1));
+    expect(outcome.run.gold).toBe(25); // −5 золота
+    expect(outcome.run.bonusLegacy).toBe(5);
+    expect(legacyGain(outcome.run)).toBe(outcome.run.depth * 5 + 5); // бонус учтён в итоге
+  });
+
+  test('нормальный забег: bonusLegacy = 0 и не влияет на legacyGain', () => {
+    const run = newRun(7, testMeta(), ['d_brom']);
+    expect(run.bonusLegacy).toBe(0);
+    expect(legacyGain(run)).toBe(run.depth * 5);
   });
 });

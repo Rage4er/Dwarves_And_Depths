@@ -401,6 +401,7 @@ export function newRun(seed: number, meta: MetaState, partyIds: string[], opts?:
     endlessFloor: 0,
     eliteLegacyGranted: false,
     endReason: null, // v6.9 §2.3: заполняется при финале боя
+    bonusLegacy: 0, // §6.5: наследие из событий забега
   };
 }
 
@@ -417,6 +418,12 @@ export function mapDepth(run: RunState): number {
 }
 
 // §6.4: legacy = depth × 5 + (bossKilled ? 50 : 0) + (elitesKilled > 0 ? 10 : 0)
+// §6.5: + наследие, накопленное событиями забега (награда kind: 'legacy')
 export function legacyGain(run: RunState): number {
-  return run.depth * 5 + (run.bossKilled ? 50 : 0) + (run.elitesKilled > 0 ? 10 : 0);
+  return (
+    run.depth * 5 +
+    (run.bossKilled ? 50 : 0) +
+    (run.elitesKilled > 0 ? 10 : 0) +
+    (run.bonusLegacy ?? 0)
+  );
 }

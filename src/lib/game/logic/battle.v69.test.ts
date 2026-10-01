@@ -312,9 +312,9 @@ describe('v6.9 волны врагов — enemyCount (§6.3) и подкреп�
   test('победа требует убить весь состав: пока есть резерв, бой не выигран', () => {
     const party = [makeDwarf('d_brom'), makeDwarf('d_grim')];
     for (const d of party) {
-      d.atk = 60; // убивает крысу за 1–2 удара
-      d.hp = 999;
-      d.hpMax = 999;
+      d.baseATK = 60; // убивает крысу за 1–2 удара
+      d.baseHP = 999;
+      d.currentHP = 999;
     }
     const battle = createBattle(party, ['e_rat', 'e_rat', 'e_rat', 'e_rat'], 1, 777);
     const result = simulateBattle(battle);

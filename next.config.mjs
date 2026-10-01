@@ -27,9 +27,6 @@ const nextConfig = {
       },
     ];
   },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   distDir: ".next",
   trailingSlash: true,
   // Build optimization
