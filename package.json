@@ -8,7 +8,9 @@
     "format": "bunx prettier --write . --ignore-unknown",
     "build": "next build",
     "dev": "next dev",
-    "lint": "next lint"
+    "lint": "next lint",
+    "serve": "node scripts/serve.mjs",
+    "serve:prod": "node scripts/serve.mjs --prod"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
