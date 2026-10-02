@@ -25,7 +25,8 @@ Single-player **Idle Roguelite Auto Battler** для браузера. Отря�
 ## Технологии
 
 - [Next.js](https://nextjs.org) (App Router) + React 19 + TypeScript
-- Tailwind CSS + shadcn/ui, иконки `lucide-react`
+- Tailwind CSS; иконки и спрайты — процедурный пиксель-арт (`components/game/sprites.tsx`)
+- Тесты логики и баланса — `bun test` (`src/lib/game/**/*.test.ts`)
 - Никаких игровых движков — чистый TS: логика не зависит от рендера
 - Звук — WebAudio-синтез (`src/lib/game/sfx.ts`), без аудиофайлов
 
@@ -35,6 +36,7 @@ Single-player **Idle Roguelite Auto Battler** для браузера. Отря�
 bun install
 bun run dev      # разработка → http://localhost:3000
 bun run build    # production-сборка (она же — проверка типов)
+bun test         # юнит-тесты логики и баланса
 ```
 
 ## Деплой
@@ -48,7 +50,6 @@ src/
   app/
     layout.tsx            # шрифты (next/font/local), тема, метаданные
     page.tsx              # входная точка → <GameRoot/>
-    actions.ts            # server actions
   components/game/
     GameRoot.tsx          # маршрутизация экранов по состоянию игры
     MenuScreen.tsx        # меню, Наследие, старт забега
@@ -97,7 +98,4 @@ TTF (таблицы, контрольные суммы, cmap). Геометри�
 
 ## Известные ограничения
 
-- Шаблонные shadcn-компоненты (`chart`, `calendar`, `sidebar`, `resizable`)
-  содержат ошибки типов и в игре не используются — на сборку не влияют
-  (проверка идёт через `bun run build`).
 - Первый рендер меню может задерживаться на чтение `localStorage`.

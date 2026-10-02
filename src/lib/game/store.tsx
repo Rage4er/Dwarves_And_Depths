@@ -162,10 +162,9 @@ function rollEquipmentUnlock(rng: PRNG, kind: 'elite' | 'boss', unlocked: string
   return pick(rng, fresh).key;
 }
 
-// Детерминированный seed боя/роллов узла из seed забега и координат узла
+// Детерминированный seed боя/роллов узла из seed забега и координат узла (§2.7)
 function nodeSeed(run: RunState, node: RunNode): number {
-  const m = /^f(\d+)n(\d+)$/.exec(node.id);
-  const salt = m ? Number(m[1]) * 16 + Number(m[2]) : node.floor;
+  const salt = node.floor * 16 + node.nodeIndex;
   return (run.seed ^ (node.difficulty * 2654435761) ^ (salt * 40503)) >>> 0;
 }
 

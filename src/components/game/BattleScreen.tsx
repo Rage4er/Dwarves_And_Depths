@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useGame } from '@/lib/game/store';
-import { simulateTurn } from '@/lib/game/logic/battle';
+import { simulateTurn, initTauntState } from '@/lib/game/logic/battle';
 import { MAX_TURNS, MAX_TURNS_BOSS } from '@/lib/game/types';
 import type { BattleState, Combatant, Position, Role } from '@/lib/game/types';
 import { HpBar } from './bits';
@@ -77,22 +77,6 @@ function statusIcons(c: Combatant): string {
     .join('');
 }
 
-function initTaunt(b: BattleState): BattleState {
-  const s: BattleState = {
-    ...b,
-    allies: b.allies.map((a) => ({ ...a, statuses: a.statuses.map((x) => ({ ...x })), effects: a.effects.map((x) => ({ ...x })) })),
-    foes: b.foes.map((f) => ({ ...f, statuses: f.statuses.map((x) => ({ ...x })), effects: f.effects.map((x) => ({ ...x })) })),
-    log: [],
-  };
-  for (const a of s.allies) {
-    if (a.alive) {
-      const taunt = a.effects.find((e) => e.type === 'taunt');
-      if (taunt) a.tauntLeft = taunt.value;
-    }
-  }
-  return s;
-}
-
 interface TurnDiff {
   popups: Omit<Popup, 'id'>[];
   lunges: Set<string>;
@@ -151,7 +135,7 @@ function clearAnimations(v: UnitView): UnitView {
 export function BattleScreen() {
   const { state, dispatch } = useGame();
   const battle = state.battle!;
-  const [cur, setCur] = useState<BattleState>(() => initTaunt(battle));
+  const [cur, setCur] = useState<BattleState>(() => initTauntState(battle));
   const [views, setViews] = useState<Record<string, UnitView>>(() =>
     Object.fromEntries([...battle.allies, ...battle.foes].map((c) => [c.uid, { flash: null, lunge: false, spark: null }])),
   );
@@ -182,7 +166,7 @@ export function BattleScreen() {
     deathTurnRef.current.clear();
     warnedRef.current = false;
     setStones([]);
-    setCur(initTaunt(battle));
+    setCur(initTauntState(battle));
     setViews(Object.fromEntries([...battle.allies, ...battle.foes].map((c) => [c.uid, { flash: null, lunge: false, spark: null }])));
     setLogLines([]);
     setPopups([]);

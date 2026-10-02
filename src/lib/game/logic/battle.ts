@@ -30,7 +30,20 @@ const WAVE_ALIVE_CAP = 3;
 const RANGED_ATTACK_MULT = 0.7;
 
 function clone<T>(v: T): T {
-  return JSON.parse(JSON.stringify(v)) as T;
+  return structuredClone(v);
+}
+
+// §2.3: инициализация taunt-таймеров для BattleState (deep-copy, без мутации исходника)
+// Экспортирован для переиспользования в BattleScreen и simulateBattle (§3.1.9)
+export function initTauntState(b: BattleState): BattleState {
+  const s = clone(b);
+  for (const a of s.allies) {
+    if (a.alive) {
+      const taunt = a.effects.find((e) => e.type === 'taunt');
+      if (taunt) a.tauntLeft = taunt.value;
+    }
+  }
+  return s;
 }
 
 // §3.1: speed = base + equipMod + rand(seed, 0..3); roll на каждый бой
@@ -419,14 +432,7 @@ export function simulateTurn(state: BattleState): BattleState {
 }
 
 export function simulateBattle(battle: BattleState): BattleResult {
-  let state = clone(battle);
-  // taunt-провокаторы входят в бой с таймером = Effect.value (§2.3)
-  for (const a of state.allies) {
-    if (a.alive) {
-      const taunt = a.effects.find((e) => e.type === 'taunt');
-      if (taunt) a.tauntLeft = taunt.value;
-    }
-  }
+  let state = initTauntState(clone(battle));
   let guard = 0;
   while (state.status === 'active' && guard < MAX_TURNS_BOSS + 10) {
     const next = simulateTurn(state);

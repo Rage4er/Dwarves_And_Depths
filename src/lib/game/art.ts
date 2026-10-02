@@ -54,6 +54,10 @@ export class Px {
         if (at(x - 1, y) || at(x + 1, y) || at(x, y - 1) || at(x, y + 1)) this.cells[y * this.w + x] = c;
       }
   }
+
+  getPixel(x: number, y: number): string | null {
+    return x >= 0 && y >= 0 && x < this.w && y < this.h ? this.cells[y * this.w + x] : null;
+  }
 }
 
 const OUTLINE = '#191008';
@@ -77,7 +81,7 @@ function raster(key: string, w: number, h: number, scale: number, draw: (p: Px) 
   if (!ctx) return BLANK_SPRITE;
   for (let y = 0; y < h; y++)
     for (let x = 0; x < w; x++) {
-      const c = p['cells'][y * w + x];
+      const c = p.getPixel(x, y);
       if (!c) continue;
       ctx.fillStyle = c;
       ctx.fillRect(x * scale, y * scale, scale, scale);

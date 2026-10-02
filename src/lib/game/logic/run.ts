@@ -81,6 +81,7 @@ interface MakeNodeArgs {
   rng: PRNG;
   id: string;
   floor: number;
+  nodeIndex: number;
   type: NodeType;
   depth: number;
   unlocked: string[];
@@ -93,8 +94,8 @@ function waveData(enemyIds: EnemyKind[]): { enemyIds: EnemyKind[]; enemyTypes: s
   return { enemyIds, enemyTypes: [...new Set(enemyIds)] };
 }
 
-function makeNode({ rng, id, floor, type, depth, unlocked, bossesKilledTotal, isEndless }: MakeNodeArgs): RunNode {
-  const base = { id, floor, difficulty: floor, rewards: { gold: 0, itemIds: [] as string[] }, next: [] as string[] };
+function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKilledTotal, isEndless }: MakeNodeArgs): RunNode {
+  const base = { id, floor, nodeIndex, difficulty: floor, rewards: { gold: 0, itemIds: [] as string[] }, next: [] as string[] };
 
   if (type === 'boss') {
     // §3.3.7: лут босса — 1 из 3 epic/legendary (stage 3 задаётся при выдаче, §3.3.6)
@@ -157,7 +158,7 @@ function enemyGroup(rng: PRNG, floor: number): EnemyKind[] {
 function buildLayers(rng: PRNG, depth: number, unlocked: string[], bossesKilledTotal: number, isEndless: boolean): RunNode[] {
   const nodes: RunNode[] = [];
   const make = (floor: number, type: NodeType, idx: number) => {
-    nodes.push(makeNode({ rng, id: `f${floor}n${idx}`, floor, type, depth, unlocked, bossesKilledTotal, isEndless }));
+    nodes.push(makeNode({ rng, id: `f${floor}n${idx}`, floor, nodeIndex: idx, type, depth, unlocked, bossesKilledTotal, isEndless }));
   };
 
   make(1, 'battle', 0);
@@ -291,7 +292,7 @@ function linearFallback(
   const map: RunNode[] = [];
   for (let floor = 1; floor <= depth; floor++) {
     const type: NodeType = floor === depth ? 'boss' : floor === depth - 1 ? 'rest' : 'battle';
-    const node = makeNode({ rng, id: `f${floor}n0`, floor, type, depth, unlocked, bossesKilledTotal, isEndless });
+    const node = makeNode({ rng, id: `f${floor}n0`, floor, nodeIndex: 0, type, depth, unlocked, bossesKilledTotal, isEndless });
     map.push(node);
     if (floor > 1) map[floor - 2].next.push(node.id);
   }
@@ -348,7 +349,7 @@ export function extendMapEndless(run: RunState, meta: MetaState): RunState {
       const type: NodeType = isBossLayer ? 'boss' : determineNodeType(rng, floor, prevElite);
       if (type === 'elite') prevElite = true;
       const node = makeNode({
-        rng, id: `f${floor}n${i}`, floor, type, depth: endFloor,
+        rng, id: `f${floor}n${i}`, floor, nodeIndex: i, type, depth: endFloor,
         unlocked, bossesKilledTotal: meta.bossesKilledTotal, isEndless: true,
       });
       layer.push(node);

@@ -6,7 +6,6 @@ const eslintConfig = [
   ...nextTypescript,
   {
     ignores: [
-      "src/components/ui/**/*", // Ignore boilerplate UI components
       "node_modules/**/*",
       ".bun/**/*", // bun's package cache contains .d.ts files that crash ESLint
       ".next/**/*",

@@ -106,6 +106,7 @@ export interface ShopItem {
 export interface RunNode {
   id: string;
   floor: number;
+  nodeIndex: number; // §2.7: индекс узла внутри слоя — для детерминированного соли
   type: NodeType;
   difficulty: number;
   rewards: { gold: number; itemIds: string[] };

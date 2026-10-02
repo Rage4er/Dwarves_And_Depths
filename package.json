@@ -1,5 +1,5 @@
 {
-  "name": "nextjs-base",
+  "name": "gnomes-and-depths",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,7 +8,8 @@
     "format": "bunx prettier --write . --ignore-unknown",
     "build": "next build",
     "dev": "next dev",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "test": "bun test",
     "serve": "node scripts/serve.mjs",
     "serve:prod": "node scripts/serve.mjs --prod"
   },
