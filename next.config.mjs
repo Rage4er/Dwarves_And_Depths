@@ -10,6 +10,8 @@ const nextConfig = {
   output: 'export',
   distDir: 'out',
   trailingSlash: true,
+  basePath: '/Dwarves_And_Depths',
+  assetPrefix: '/Dwarves_And_Depths/',
   rewrites() {
     return [{ source: '/public/:path*', destination: '/:path*' }];
   },
