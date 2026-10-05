@@ -4,6 +4,9 @@ import { GeistSans } from "geist/font/sans";
 import localFont from "next/font/local";
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
+import bgTavern from "./bg-tavern.webp";
+import bgCavern from "./bg-cavern.webp";
+import bgDepths from "./bg-depths.webp";
 import "./globals.css";
 
 const runic = localFont({
@@ -34,6 +37,13 @@ export default function RootLayout({
           GeistMono.variable,
           runic.variable
         )}
+        style={
+          {
+            "--bg-tavern": `url(${bgTavern.src})`,
+            "--bg-cavern": `url(${bgCavern.src})`,
+            "--bg-depths": `url(${bgDepths.src})`,
+          } as React.CSSProperties
+        }
       >
         <ThemeProvider
           attribute="class"

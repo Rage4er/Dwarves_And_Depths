@@ -103,17 +103,17 @@ body {
 .scene-tavern {
   background-image:
     linear-gradient(rgba(10, 8, 6, 0.72), rgba(10, 8, 6, 0.82)),
-    url('../../../bg-tavern.webp');
+    var(--bg-tavern);
 }
 .scene-cavern {
   background-image:
     linear-gradient(rgba(8, 7, 10, 0.74), rgba(8, 7, 10, 0.84)),
-    url('../../../bg-cavern.webp');
+    var(--bg-cavern);
 }
 .scene-depths {
   background-image:
     linear-gradient(rgba(10, 8, 6, 0.76), rgba(10, 8, 6, 0.86)),
-    url('../../../bg-depths.webp');
+    var(--bg-depths);
 }
 
 @keyframes shake {
