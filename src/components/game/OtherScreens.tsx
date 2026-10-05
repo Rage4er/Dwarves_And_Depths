@@ -76,15 +76,17 @@ export function PartyScreen() {
                     : 'cursor-not-allowed bg-stone-950/60 opacity-45 ring-stone-800'
               }`}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between gap-2">
                 <span className="flex items-center gap-3">
                   <span className="shrink-0 rounded bg-black/40 ring-1 ring-stone-700/60" aria-hidden>
                     <DwarfSprite name={def.name} roleBias={def.roleBias} size={96} />
                   </span>
-                  <span className="font-runic text-lg font-black text-stone-100">{def.name}</span>
-                </span>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400/90">
-                  {ROLE_NAME[def.roleBias]}
+                  <div className="flex flex-col">
+                    <span className="font-runic text-lg font-black text-stone-100">{def.name}</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-amber-400/90">
+                      {ROLE_NAME[def.roleBias]}
+                    </span>
+                  </div>
                 </span>
               </div>
               <div className="mt-3 flex flex-wrap gap-1 text-[11px] font-semibold text-stone-200">
