@@ -8,7 +8,7 @@ import { useGame } from '@/lib/game/store';
 import { mapDepth, nodeById } from '@/lib/game/logic/run';
 import { NODE_NAME } from '@/lib/game/types';
 import type { RunNode } from '@/lib/game/types';
-import { ENEMY_TABLE, enemyPreview } from '@/lib/game/data';
+import { ENEMY_TABLE } from '@/lib/game/data';
 import type { EnemyKind } from '@/lib/game/data';
 import { DwarfCard, Gold } from './bits';
 import { ShopPanel, RestPanel, ForgePanel } from './OtherScreens';
@@ -224,7 +224,7 @@ function BattlePrompt({ node }: { node: RunNode }) {
         {shownFoes.map((f, i) => (
           <span key={`${f.id}_${i}`} className="flex items-center gap-1.5 rounded bg-black/40 px-2 py-1">
             <FoeSprite name={f.name} size={20} />
-            {f.name} · НР {enemyPreview(f.id, node.floor).hp}
+            {f.name}
           </span>
         ))}
         {hidden > 0 && (
