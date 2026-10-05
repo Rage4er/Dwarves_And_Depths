@@ -4,7 +4,7 @@ import type { Equipment, RunState, Dwarf } from '../types';
 import type { PRNG } from '../rng';
 import { pick, randInt } from '../rng';
 import type { EventDef } from '../data/events';
-import { DWARF_TABLE } from '../data/dwarves';
+import { DWARF_TABLE, makeDwarf } from '../data/dwarves';
 import { ITEM_TABLE, makeEquipment, rarityUpgrade } from '../data/items';
 
 export interface EventOutcome {
@@ -26,23 +26,7 @@ function randomUnownedDwarf(rng: PRNG, run: RunState): Dwarf | null {
   const pool = DWARF_TABLE.filter((d) => !owned.has(d.id));
   if (!pool.length) return null;
   const def = pick(rng, pool);
-  return {
-    id: def.id,
-    name: def.name,
-    baseHP: def.baseHP,
-    baseATK: def.baseATK,
-    baseDEF: def.baseDEF,
-    baseSpeed: def.baseSpeed,
-    equipment: [],
-    position: 'mid',
-    currentHP: def.baseHP,
-    isAlive: true,
-    speed: def.baseSpeed,
-    role: def.roleBias,
-    roleBias: def.roleBias,
-    statusEffects: [],
-    localSlotBonus: 0,
-  };
+  return makeDwarf(def.id);
 }
 
 function randomItemForRun(rng: PRNG, run: RunState, rarity?: string): Equipment {

@@ -356,9 +356,9 @@ const ROLE_LOOK: Record<string, DwarfLook> = {
   any: DWARF_LOOK.d_grim,
 };
 
-export function dwarfSpriteUrl(name: string, roleBias?: string): string {
+export function dwarfSpriteUrl(name: string, role?: string): string {
   const id = DWARF_BY_NAME[name];
-  const look = (id && (EXTRA_LOOK[id] ?? DWARF_LOOK[id])) || (roleBias && ROLE_LOOK[roleBias]) || ROLE_LOOK.warrior;
+  const look = (id && (EXTRA_LOOK[id] ?? DWARF_LOOK[id])) || (role && ROLE_LOOK[role]) || ROLE_LOOK.any;
   return raster(`dw:${look.helm}${look.beard[0]}${look.weapon}`, 32, 32, 3, (p) => drawDwarf(p, look));
 }
 
@@ -1135,6 +1135,6 @@ export function coinUrl(): string {
   return raster('ic:coin', 16, 16, 2, drawCoin);
 }
 
-export function dwarfPortraitUrl(name: string, roleBias?: string): string {
-  return dwarfSpriteUrl(name, roleBias);
+export function dwarfPortraitUrl(name: string, role?: string): string {
+  return dwarfSpriteUrl(name, role);
 }

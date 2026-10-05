@@ -24,7 +24,7 @@ export function MenuScreen() {
       <div className="mb-2 flex items-end justify-center gap-1" aria-hidden>
         {DWARF_TABLE.slice(0, 6).map((d, i) => (
           <span key={d.id} className="animate-march inline-block" style={{ animationDelay: `${i * 0.12}s` }}>
-            <DwarfSprite name={d.name} roleBias={d.roleBias} size={i === 0 ? 84 : 64} />
+            <DwarfSprite name={d.name} size={i === 0 ? 84 : 64} />
           </span>
         ))}
       </div>
@@ -106,25 +106,6 @@ export function MenuScreen() {
               наследия
             </div>
           </div>
-          {(meta.unlocks.autoBattle || meta.unlocks.autoRepeat || meta.unlocks.autoEquip) && (
-            <div className="flex flex-wrap justify-center gap-1.5 pt-1 text-[11px]">
-              {meta.unlocks.autoBattle && (
-                <span className="rounded-full bg-emerald-900/40 px-2.5 py-1 font-semibold text-emerald-300 ring-1 ring-emerald-700/50">
-                  ⚡ Авто-бой
-                </span>
-              )}
-              {meta.unlocks.autoRepeat && (
-                <span className="rounded-full bg-emerald-900/40 px-2.5 py-1 font-semibold text-emerald-300 ring-1 ring-emerald-700/50">
-                  🔁 Авто-повтор
-                </span>
-              )}
-              {meta.unlocks.autoEquip && (
-                <span className="rounded-full bg-emerald-900/40 px-2.5 py-1 font-semibold text-emerald-300 ring-1 ring-emerald-700/50">
-                  🎒 Авто-экипировка
-                </span>
-              )}
-            </div>
-          )}
         </div>
       )}
 

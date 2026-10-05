@@ -14,13 +14,13 @@ export function equipmentOf(dwarf: Dwarf): Equipment[] {
 }
 
 // §3.1.3: weapon > armor > trinket > rune; role 'any' пропускается;
-// ничего не найдено → roleBias
-export function resolveRole(dwarf: Dwarf): Exclude<Role, 'any'> {
+// ничего не найдено → 'any' (гном без роли)
+export function resolveRole(dwarf: Dwarf): Role {
   for (const slot of SLOT_ORDER) {
     const item = dwarf.equipment.find((e) => e.slot === slot);
-    if (item && item.role !== 'any') return item.role as Exclude<Role, 'any'>;
+    if (item && item.role !== 'any') return item.role;
   }
-  return dwarf.roleBias as Exclude<Role, 'any'>;
+  return 'any';
 }
 
 export function dwarfStats(dwarf: Dwarf): DwarfStats {

@@ -232,22 +232,22 @@ describe('v6.9 миграция сейва — endReason (§2.6)', () => {
 
 // ── волны врагов: enemyCount §6.3 и пошаговая адаптация потока §3.1.1 ─
 
-describe('v6.9 волны врагов — enemyCount (§6.3) и подкрепления (§3.1.1)', () => {
-  test('enemyCount — точная формула ТЗ: 8 на floor 1, кап 15, элита +4', () => {
-    expect(enemyCount(1, false)).toBe(8);
-    expect(enemyCount(2, false)).toBe(9);
-    expect(enemyCount(3, false)).toBe(11);
-    expect(enemyCount(10, false)).toBe(15);
-    expect(enemyCount(30, false)).toBe(15);
-    expect(enemyCount(1, true)).toBe(12);
+describe('v7.1 волны врагов — enemyCount (§6.3) и подкрепления (§3.1.1)', () => {
+  test('enemyCount — v7.1: 1.5 врага на гнома (dwarfCount=2), cap 3–20', () => {
+    expect(enemyCount(1, false, 2)).toBe(3);
+    expect(enemyCount(2, false, 2)).toBe(4);
+    expect(enemyCount(3, false, 2)).toBe(5);
+    expect(enemyCount(10, false, 2)).toBe(8);
+    expect(enemyCount(30, false, 2)).toBe(15);
+    expect(enemyCount(1, true, 2)).toBe(5);
   });
 
   test('battleWaveTotal — пошаговая адаптация (×0.3): 2 на floor 1 (обучение), с floor 2 ≥ 3, элита больше', () => {
-    expect(battleWaveTotal(1, false)).toBe(2);
-    expect(battleWaveTotal(2, false)).toBe(3);
-    expect(battleWaveTotal(10, false)).toBe(5);
-    expect(battleWaveTotal(1, true)).toBe(4);
-    expect(battleWaveTotal(10, true)).toBe(5);
+    expect(battleWaveTotal(1, false, 2)).toBe(2);
+    expect(battleWaveTotal(2, false, 2)).toBe(3);
+    expect(battleWaveTotal(10, false, 2)).toBe(5);
+    expect(battleWaveTotal(1, true, 2)).toBe(4);
+    expect(battleWaveTotal(10, true, 2)).toBe(5);
   });
 
   test('карта фиксирует полный состав волны: бой/элита по battleWaveTotal, босс соло', () => {
@@ -259,12 +259,12 @@ describe('v6.9 волны врагов — enemyCount (§6.3) и подкреп�
         const ids = (node.data?.enemyIds ?? []) as string[];
         if (node.type === 'battle' && !sawBattle) {
           sawBattle = true;
-          expect(ids.length).toBe(battleWaveTotal(node.floor, false));
+          expect(ids.length).toBe(battleWaveTotal(node.floor, false, 2));
         }
         if (node.type === 'elite' && !sawElite) {
           sawElite = true;
           expect(ids[0]).toBe('e_golem');
-          expect(ids.length).toBe(battleWaveTotal(node.floor, true));
+          expect(ids.length).toBe(battleWaveTotal(node.floor, true, 2));
         }
         if (node.type === 'boss' && !sawBoss) {
           sawBoss = true;

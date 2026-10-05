@@ -32,8 +32,8 @@ function headlessMeta(): MetaState {
     unlockedEquipment: [],
     lastSeenAt: 0,
     runCount: 0,
-    unlocks: { autoBattle: true, autoRepeat: true, autoEquip: true },
     sleepLoot: [],
+    skipPrepScreen: false,
   };
 }
 
@@ -80,8 +80,7 @@ function recruitCopy(dwarfId: string) {
     currentHP: def.baseHP,
     isAlive: true,
     speed: def.baseSpeed,
-    role: def.roleBias,
-    roleBias: def.roleBias,
+    role: 'any' as const,
     statusEffects: [],
     localSlotBonus: 0,
   };

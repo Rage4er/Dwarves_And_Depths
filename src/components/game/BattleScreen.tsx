@@ -615,7 +615,7 @@ function AllyUnit({
         >
           {/* выпад к врагу при ближней атаке (§5.2) — отряд при этом продолжает бежать */}
           <div className={view.lunge ? 'animate-ally-lunge' : ''}>
-            <DwarfSprite name={c.name} roleBias={c.role} size={size} className={dead ? 'opacity-60 grayscale' : ''} />
+            <DwarfSprite name={c.name} size={size} className={dead ? 'opacity-60 grayscale' : ''} />
           </div>
         </div>
         {c.tauntLeft > 0 && !dead && (

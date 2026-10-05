@@ -26,19 +26,19 @@ export interface EnemyDef {
 }
 
 export const ENEMY_TABLE: Record<EnemyKind, EnemyDef> = {
-  e_rat: { id: 'e_rat', name: 'Крыса', baseHP: 30, baseATK: 5, baseDEF: 2, speed: 8, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
-  e_goblin: { id: 'e_goblin', name: 'Гоблин', baseHP: 40, baseATK: 7, baseDEF: 3, speed: 10, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
+  e_rat: { id: 'e_rat', name: 'Крыса', baseHP: 150, baseATK: 5, baseDEF: 2, speed: 8, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
+  e_goblin: { id: 'e_goblin', name: 'Гоблин', baseHP: 200, baseATK: 7, baseDEF: 3, speed: 10, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
   // v7.0: стреляет из тыла — урон ×0.7, но достаёт по любой линии
-  e_archer_goblin: { id: 'e_archer_goblin', name: 'Гоблин-лучник', baseHP: 30, baseATK: 8, baseDEF: 2, speed: 11, position: 'back', attackType: 'ranged', attackRange: 260, effects: [] },
-  e_spider: { id: 'e_spider', name: 'Паук', baseHP: 35, baseATK: 6, baseDEF: 2, speed: 12, position: 'mid', attackType: 'melee', attackRange: 80, effects: [{ type: 'poison', value: 5, chance: 20 }] },
-  e_slime: { id: 'e_slime', name: 'Слизень', baseHP: 60, baseATK: 4, baseDEF: 8, speed: 4, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'hp_regen', value: 3 }] },
-  e_orc: { id: 'e_orc', name: 'Орк', baseHP: 80, baseATK: 12, baseDEF: 6, speed: 7, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
+  e_archer_goblin: { id: 'e_archer_goblin', name: 'Гоблин-лучник', baseHP: 150, baseATK: 8, baseDEF: 2, speed: 11, position: 'back', attackType: 'ranged', attackRange: 260, effects: [] },
+  e_spider: { id: 'e_spider', name: 'Паук', baseHP: 175, baseATK: 6, baseDEF: 2, speed: 12, position: 'mid', attackType: 'melee', attackRange: 80, effects: [{ type: 'poison', value: 5, chance: 20 }] },
+  e_slime: { id: 'e_slime', name: 'Слизень', baseHP: 300, baseATK: 4, baseDEF: 8, speed: 4, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'hp_regen', value: 3 }] },
+  e_orc: { id: 'e_orc', name: 'Орк', baseHP: 400, baseATK: 12, baseDEF: 6, speed: 7, position: 'front', attackType: 'melee', attackRange: 80, effects: [] },
   // v7.0: колдовская поддержка в тылу — слабый удар + яд
-  e_shaman: { id: 'e_shaman', name: 'Шаман', baseHP: 45, baseATK: 6, baseDEF: 4, speed: 8, position: 'back', attackType: 'ranged', attackRange: 260, effects: [{ type: 'poison', value: 4, chance: 30 }] },
-  e_golem: { id: 'e_golem', name: 'Голем', baseHP: 150, baseATK: 15, baseDEF: 12, speed: 5, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'stun', value: 20 }], isElite: true },
-  e_heart: { id: 'e_heart', name: 'Сердце Глубин', baseHP: 300, baseATK: 20, baseDEF: 15, speed: 6, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'splash', value: 30 }], isBoss: true },
+  e_shaman: { id: 'e_shaman', name: 'Шаман', baseHP: 225, baseATK: 6, baseDEF: 4, speed: 8, position: 'back', attackType: 'ranged', attackRange: 260, effects: [{ type: 'poison', value: 4, chance: 30 }] },
+  e_golem: { id: 'e_golem', name: 'Голем', baseHP: 750, baseATK: 15, baseDEF: 12, speed: 5, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'stun', value: 20 }], isElite: true },
+  e_heart: { id: 'e_heart', name: 'Сердце Глубин', baseHP: 1500, baseATK: 20, baseDEF: 15, speed: 6, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'splash', value: 30 }], isBoss: true },
   // v6.8 §1.1/§6.3: HP 500, ATK 20, DEF 12, summon — победа открывает бесконечный режим
-  e_forge_demon: { id: 'e_forge_demon', name: 'Демон Кузни', baseHP: 500, baseATK: 20, baseDEF: 12, speed: 5, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'summon', value: 10 }], isBoss: true },
+  e_forge_demon: { id: 'e_forge_demon', name: 'Демон Кузни', baseHP: 2500, baseATK: 20, baseDEF: 12, speed: 5, position: 'front', attackType: 'melee', attackRange: 80, effects: [{ type: 'summon', value: 10 }], isBoss: true },
   // v6.9 §6.3: Древний — непобедимый страж Глубин; в боях не спавнится, существует
   // как событие финала босс-боя по лимиту ходов (§3.1.1), наград не даёт
   e_ancient: { id: 'e_ancient', name: 'Древний', baseHP: 9999, baseATK: 999, baseDEF: 999, speed: 10, position: 'front', attackType: 'melee', attackRange: 80, effects: [], isBoss: true },
@@ -142,9 +142,13 @@ export function bossForFloor(floor: number, bossesKilledTotal: number, isEndless
   return BOSS_CYCLE[idx];
 }
 
-// §6.3 Число врагов: min(15, floor(5 + log2(floor+1)×3 + (элита?4:0))) — 8 на floor 1, кап 15
-export function enemyCount(floor: number, isElite: boolean): number {
-  return Math.min(15, Math.floor(5 + Math.log2(floor + 1) * 3 + (isElite ? 4 : 0)));
+// §6.3 Число врагов: v7.1 — 1.5 врага на гнома, + floor/3, элита ×1.5
+export function enemyCount(floor: number, isElite: boolean, dwarfCount: number): number {
+  const base = Math.round(dwarfCount * 1.5);
+  const floorBonus = Math.floor(floor / 3);
+  const eliteMod = isElite ? 1.5 : 1.0;
+  const raw = Math.round((base + floorBonus) * eliteMod);
+  return Math.max(3, Math.min(20, raw));
 }
 
 // Пошаговая адаптация §6.3/§3.1.1: в реалтайме гном бьёт 2–3 раза/сек и держит 8–15 врагов,
@@ -154,8 +158,8 @@ export function enemyCount(floor: number, isElite: boolean): number {
 // (каскад ранних потерь), против 5/10 базлайна; с floor 2 состав и так ≥ 3
 export const WAVE_SCALE = 0.3;
 export const WAVE_CAP = 8;
-export function battleWaveTotal(floor: number, isElite: boolean): number {
-  return Math.min(WAVE_CAP, Math.max(2, Math.round(enemyCount(floor, isElite) * WAVE_SCALE)));
+export function battleWaveTotal(floor: number, isElite: boolean, dwarfCount: number): number {
+  return Math.min(WAVE_CAP, Math.max(2, Math.round(enemyCount(floor, isElite, dwarfCount) * WAVE_SCALE)));
 }
 
 // §3.1.1: состав волны фиксируется при генерации карты (enemyIds узла);

@@ -78,12 +78,12 @@ export function PartyScreen() {
             >
               <div className="flex flex-col items-center gap-2 text-center">
                 <span className="rounded bg-black/40 ring-1 ring-stone-700/60" aria-hidden>
-                  <DwarfSprite name={def.name} roleBias={def.roleBias} size={96} />
+                  <DwarfSprite name={def.name} size={96} />
                 </span>
                 <div>
                   <div className="font-runic text-lg font-black text-stone-100">{def.name}</div>
                   <div className="text-[10px] font-bold uppercase tracking-wide text-amber-400/90">
-                    {ROLE_NAME[def.roleBias]}
+                    {def.unlockFloor <= state.meta.maxFloorEverReached || meta.unlockedDwarves.includes(def.id) ? 'Гном' : '???'}
                   </div>
                 </div>
               </div>

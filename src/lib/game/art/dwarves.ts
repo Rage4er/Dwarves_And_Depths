@@ -215,6 +215,6 @@ export function dwarfGrid(id: string, role: string): Grid {
   return g;
 }
 
-export function dwarfSpriteUrl(id: string, role: string, scale = 3): string {
+export function dwarfSpriteUrl(id: string, role: string = 'any', scale = 3): string {
   return gridToDataUrl(dwarfGrid(id, role), scale, `d:${id}:${role}:${scale}`);
 }

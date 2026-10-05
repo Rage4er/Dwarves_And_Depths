@@ -7,7 +7,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useReducer } from 'react';
 import type {
-  AutoEquipTemplate, BattleEndReason, BattleState, Dwarf, Equipment, EquipSlots, MetaState, Position,
+  BattleEndReason, BattleState, Dwarf, Equipment, MetaState, Position,
   RunNode, RunState, ScreenId, Slot,
 } from './types';
 import type { PRNG } from './rng';
@@ -23,18 +23,6 @@ import {
   rarityUpgrade, sellPrice, unlockedDwarfIds,
 } from './data';
 import { ITEM_TABLE, rollItemStage, type ItemDef } from './data/items';
-
-type TemplateSlot = Exclude<Slot, 'rune'>;
-
-export const META_KEY = 'dnd_meta_v1';
-export const RUN_KEY = 'dnd_run_v1';
-
-const INVENTORY_CAP = 100; // §2.7: авто-продажа при переполнении
-const OFFLINE_HOURS_CAP = 8; // §3.2: Δ capped на 8 часов
-const AUTO_BATTLE_RUNS = 3; // §3.2: runCount ≥ 3
-const AUTO_REPEAT_RUNS = 5; // §3.2: runCount ≥ 5
-const AUTO_EQUIP_RUNS = 7; // §3.2: runCount ≥ 7
-const SHOP_PARTY_CAP = 10; // §3.3.2: наём, пока партия < 10
 
 export interface Toast {
   id: number;
@@ -61,6 +49,14 @@ export interface GameState {
   partyEndless: boolean; // v6.8: выбран «Бесконечный спуск» в меню → START_RUN в бесконечном режиме
 }
 
+// §2.6: ключи localStorage
+export const META_KEY = 'dnd_meta_v1';
+export const RUN_KEY = 'dnd_run_v1';
+
+const INVENTORY_CAP = 100; // §2.7: авто-продажа при переполнении
+const OFFLINE_HOURS_CAP = 8; // §3.2: Δ capped на 8 часов
+const SHOP_PARTY_CAP = 10; // §3.3.2: наём, пока партия < 10
+
 // §2.3: стартовые значения меты — Бром и Грим открыты (unlockFloor 1)
 export const DEFAULT_META: MetaState = {
   legacy: 0,
@@ -76,9 +72,8 @@ export const DEFAULT_META: MetaState = {
   unlockedDwarves: DWARF_TABLE.filter((d) => d.unlockFloor <= 1).map((d) => d.id),
   unlockedEquipment: defaultUnlockedEquipment(),
   runCount: 0,
-  unlocks: { autoBattle: false, autoRepeat: false, autoEquip: false },
-  autoEquipTemplate: undefined,
   sleepLoot: [],
+  skipPrepScreen: false,
   lastSeenAt: 0,
 };
 
@@ -93,7 +88,6 @@ type Action =
   | { type: 'BATTLE_FINISH'; state: BattleState }
   | { type: 'DEATH_CONTINUE' }
   | { type: 'REWARD_PICK'; index: number }
-  | { type: 'TEMPLATE_SLOT'; role: keyof AutoEquipTemplate; slot: TemplateSlot }
   | { type: 'EVENT_CHOICE'; index: number }
   | { type: 'EVENT_CONTINUE' }
   | { type: 'BUY'; index: number }
@@ -103,7 +97,6 @@ type Action =
   | { type: 'EQUIP'; dwarfId: string; itemId: string }
   | { type: 'UNEQUIP'; dwarfId: string; slot: Slot }
   | { type: 'SET_POSITION'; dwarfId: string; position: Position }
-  | { type: 'SET_TEMPLATE'; role: keyof AutoEquipTemplate; slot: TemplateSlot; itemKey: string | null }
   | { type: 'SMITHY_BUY'; id: 'maxSlots' | 'maxPartySize' | 'smithyLevel' | 'offlineBonusPerHour' }
   | { type: 'ABANDON' }
   | { type: 'END_TO_MENU' }
@@ -188,33 +181,6 @@ function reposition(dwarves: Dwarf[]): Dwarf[] {
   return dwarves.map((d, i) => ({ ...d, position: assignPosition(i, n) }));
 }
 
-// §3.2.1: шаблон role→slot применяется к новым гномам при найме
-function applyAutoEquip(
-  dwarf: Dwarf,
-  inventory: Equipment[],
-  template: AutoEquipTemplate,
-  maxSlots: number,
-): { dwarf: Dwarf; inventory: Equipment[] } {
-  const tpl = template[dwarf.role as keyof AutoEquipTemplate];
-  if (!tpl) return { dwarf, inventory };
-  let inv = [...inventory];
-  let equipment = [...dwarf.equipment];
-  for (const slot of ['weapon', 'armor', 'trinket'] as const) {
-    const key = tpl[slot];
-    if (!key) continue;
-    const idx = inv.findIndex(
-      (it) => it.slot === slot && it.id.startsWith(`${key}#`) && canEquip(it, { ...dwarf, equipment }, maxSlots),
-    );
-    if (idx < 0) continue;
-    const [item] = inv.splice(idx, 1);
-    equipment = [...equipment.filter((e) => e.slot !== slot), item];
-  }
-  return {
-    dwarf: { ...dwarf, equipment, role: resolveRole({ ...dwarf, equipment }) },
-    inventory: inv,
-  };
-}
-
 // §3.2 Сон кузницы: каждый roll — случайный unlocked item с весами по редкости
 const SLEEP_RARITY_WEIGHT: Record<Equipment['rarity'], number> = {
   common: 62, rare: 25, epic: 10, legendary: 3,
@@ -260,8 +226,7 @@ function enterNode(state: GameState, nodeId: string): GameState {
     case 'battle':
     case 'elite':
     case 'boss':
-      // §3.2 Авто-бой: пропуск кнопки «В бой»
-      return reg.meta.unlocks.autoBattle ? startBattleState(base) : { ...base, screen: 'prepare' };
+      return { ...base, screen: 'prepare' };
     case 'event':
       return { ...base, screen: 'event', eventResult: null };
     case 'shop':
@@ -286,11 +251,6 @@ function endRun(state: GameState, now: number, extraLegacy = 0): GameState {
       legacy: state.meta.legacy + gain,
       maxDepthEver: Math.max(state.meta.maxDepthEver, run.floor), // §3.3.1: рекорд глубины
       runCount,
-      unlocks: {
-        autoBattle: runCount >= AUTO_BATTLE_RUNS,
-        autoRepeat: runCount >= AUTO_REPEAT_RUNS,
-        autoEquip: runCount >= AUTO_EQUIP_RUNS,
-      },
       lastSeenAt: now,
     },
     screen: 'end',
@@ -554,19 +514,6 @@ export function reducer(state: GameState, action: Action): GameState {
         return endRun({ ...state, run: updated, rewardOptions: [] }, Date.now());
       }
       const advanced = advanceEndless({ ...state, run: updated, rewardOptions: [] });
-      const advancedRun = advanced.run;
-      // §3.2 Авто-повтор: авто-выбор узла того же типа, что и предыдущий
-      if (state.meta.unlocks.autoRepeat && advanced.screen === 'map' && advancedRun) {
-        const finished = nodeById(advancedRun, run.currentNodeId);
-        const same = finished
-          ? finished.next
-              .map((id) => nodeById(advancedRun, id))
-              .find((n) => n && !n.visited && n.type === finished.type)
-          : null;
-        if (same) {
-          return enterNode({ ...advanced, screen: 'map' }, same.id);
-        }
-      }
       return { ...advanced, screen: 'map' };
     }
 
@@ -633,20 +580,13 @@ export function reducer(state: GameState, action: Action): GameState {
         );
         if (!candidates.length) return state;
         const rng = mulberry32((nodeSeed(run, node) ^ 0x7777) >>> 0);
-        let dwarf = makeDwarf(pick(rng, candidates).id, run.dwarves.length, run.dwarves.length + 1);
-        let inventory = run.inventory;
-        if (state.meta.unlocks.autoEquip && state.meta.autoEquipTemplate) {
-          const applied = applyAutoEquip(dwarf, inventory, state.meta.autoEquipTemplate, state.meta.maxSlots);
-          dwarf = applied.dwarf;
-          inventory = applied.inventory;
-        }
+        const dwarf = makeDwarf(pick(rng, candidates).id, run.dwarves.length, run.dwarves.length + 1);
         return {
           ...state,
           run: {
             ...run,
             gold: run.gold - entry.price,
             dwarves: reposition([...run.dwarves, dwarf]),
-            inventory,
             map: run.map.map((n) =>
               n.id === node.id
                 ? { ...n, data: { ...n.data, shopStock: stock.filter((_, i) => i !== action.index) } }
@@ -789,19 +729,6 @@ export function reducer(state: GameState, action: Action): GameState {
           : state.run,
       };
 
-    case 'SET_TEMPLATE': {
-      const template: AutoEquipTemplate = state.meta.autoEquipTemplate ?? {
-        tank: {}, warrior: {}, ranged: {}, mage: {}, support: {},
-      };
-      const roleSlots: EquipSlots = { ...template[action.role] };
-      if (action.itemKey === null) delete roleSlots[action.slot];
-      else roleSlots[action.slot] = action.itemKey;
-      return {
-        ...state,
-        meta: { ...state.meta, autoEquipTemplate: { ...template, [action.role]: roleSlots } },
-      };
-    }
-
     case 'SMITHY_BUY': {
       // §3.5: апгрейды — данные; цена baseCost × 1.5^level (§6.4)
       const def = SMITHY_UPGRADES.find((d) => d.id === action.id);
@@ -844,11 +771,9 @@ export function normalizeMeta(raw: unknown): MetaState {
   if (!Number.isFinite(meta.maxDepthEver) || meta.maxDepthEver < 0) meta.maxDepthEver = 0;
   if (!Number.isFinite(meta.bossesKilledTotal) || meta.bossesKilledTotal < 0) meta.bossesKilledTotal = 0;
   if (typeof meta.endlessUnlocked !== 'boolean') meta.endlessUnlocked = false;
-  meta.unlocks = {
-    autoBattle: meta.runCount >= AUTO_BATTLE_RUNS,
-    autoRepeat: meta.runCount >= AUTO_REPEAT_RUNS,
-    autoEquip: meta.runCount >= AUTO_EQUIP_RUNS,
-  };
+  // v7.1: удаление старых полей auto-unlocks
+  if ('unlocks' in meta) delete (meta as Record<string, unknown>).unlocks;
+  if ('autoEquipTemplate' in meta) delete (meta as Record<string, unknown>).autoEquipTemplate;
   return meta;
 }
 

@@ -73,8 +73,7 @@ export interface Dwarf {
   currentHP: number;
   isAlive: boolean;
   speed: number;
-  role: Role; // resolved по §3.1.3, никогда не 'any'
-  roleBias: Role;
+  role: Role; // resolved по §3.1.3; 'any' если нет экипировки с ролью
   statusEffects: StatusEffect[];
   localSlotBonus: number; // 0 или 1 (§3.1.6)
 }
@@ -153,14 +152,6 @@ export interface EquipSlots {
   trinket?: string;
 }
 
-export interface AutoEquipTemplate {
-  tank: EquipSlots;
-  warrior: EquipSlots;
-  ranged: EquipSlots;
-  mage: EquipSlots;
-  support: EquipSlots;
-}
-
 export interface MetaState {
   legacy: number;
   maxSlots: number; // слотов экипировки на ОДНОГО гнома (2 → 4)
@@ -176,13 +167,8 @@ export interface MetaState {
   unlockedEquipment: string[];
   lastSeenAt: number;
   runCount: number;
-  unlocks: {
-    autoBattle: boolean;
-    autoRepeat: boolean;
-    autoEquip: boolean;
-  };
-  autoEquipTemplate?: AutoEquipTemplate;
   sleepLoot: string[]; // ключи каталога, накопленные «сном кузницы» вне забега (§3.2)
+  skipPrepScreen: boolean; // v7.1: пропуск экрана подготовки
 }
 
 export const MAX_TURNS = 50;
@@ -211,7 +197,7 @@ export const SLOT_NAME: Record<Slot, string> = {
 };
 export const ROLE_NAME: Record<Role, string> = {
   tank: 'Страж', warrior: 'Воин', ranged: 'Стрелок', mage: 'Маг',
-  support: 'Жрец', any: 'Любой',
+  support: 'Жрец', any: 'Гном',
 };
 export const POSITION_NAME: Record<Position, string> = {
   front: 'Авангард', mid: 'Центр', back: 'Тыл',

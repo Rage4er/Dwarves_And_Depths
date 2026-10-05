@@ -59,7 +59,7 @@ export function EndScreen() {
         {won
           ? run.dwarves.slice(0, 5).map((d, i) => (
               <span key={d.id} className="animate-march inline-block" style={{ animationDelay: `${i * 0.12}s` }}>
-                <DwarfSprite name={d.name} roleBias={d.roleBias} size={i === 0 ? 76 : 58} />
+                <DwarfSprite name={d.name} size={i === 0 ? 76 : 58} />
               </span>
             ))
           : run.dwarves.slice(0, 4).map((d) => (
@@ -67,7 +67,7 @@ export function EndScreen() {
                 key={d.id}
                 className={`inline-block ${d.isAlive ? '' : '-rotate-90 opacity-60 grayscale'}`}
               >
-                <DwarfSprite name={d.name} roleBias={d.roleBias} size={run.status === 'abandoned' ? 58 : 50} />
+                <DwarfSprite name={d.name} size={run.status === 'abandoned' ? 58 : 50} />
               </span>
             ))}
       </div>

@@ -63,7 +63,7 @@ export function DwarfCard({
     >
       <div className="flex items-center gap-2">
         <span className="shrink-0 rounded bg-black/40 ring-1 ring-stone-700/60" aria-hidden>
-          <DwarfSprite name={dwarf.name} roleBias={dwarf.roleBias} size={44} />
+          <DwarfSprite name={dwarf.name} size={44} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-bold text-stone-100">{dwarf.name}</div>

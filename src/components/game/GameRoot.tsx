@@ -37,7 +37,7 @@ export function GameRoot() {
       <div className="scene scene-depths flex min-h-dvh items-center justify-center text-stone-500">
       <div className="flex items-center justify-center gap-3 text-stone-500">
         <span className="animate-march inline-block">
-          <DwarfSprite name="Бром" roleBias="tank" size={64} />
+          <DwarfSprite name="Бром" size={64} />
         </span>
         <span className="animate-pulse font-runic text-lg">Кузница греется…</span>
       </div>

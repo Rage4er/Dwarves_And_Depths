@@ -26,7 +26,8 @@ function testMeta(overrides: Partial<MetaState> = {}): MetaState {
     ...DEFAULT_META,
     unlockedDwarves: DWARF_TABLE.map((d) => d.id),
     unlockedEquipment: [],
-    unlocks: { autoBattle: true, autoRepeat: true, autoEquip: true },
+    skipPrepScreen: false,
+    sleepLoot: [],
     ...overrides,
   };
 }

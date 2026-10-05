@@ -44,20 +44,18 @@ export function PixelSprite({
 
 export function DwarfSprite({
   name,
-  roleBias,
   size = 72,
   className = '',
   style,
 }: {
   name: string;
-  roleBias?: string;
   size?: number;
   className?: string;
   style?: React.CSSProperties;
 }) {
   return (
     <PixelSprite
-      src={dwarfSpriteUrl(name, roleBias)}
+      src={dwarfSpriteUrl(name)}
       size={size}
       alt={name}
       className={className}

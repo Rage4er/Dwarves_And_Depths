@@ -87,6 +87,7 @@ interface MakeNodeArgs {
   unlocked: string[];
   bossesKilledTotal: number;
   isEndless: boolean;
+  dwarfCount?: number;
 }
 
 // §3.3.1 v7.0: enemyTypes — уникальные типы волны для превью экрана подготовки (без статов и количества)
@@ -94,7 +95,7 @@ function waveData(enemyIds: EnemyKind[]): { enemyIds: EnemyKind[]; enemyTypes: s
   return { enemyIds, enemyTypes: [...new Set(enemyIds)] };
 }
 
-function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKilledTotal, isEndless }: MakeNodeArgs): RunNode {
+function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKilledTotal, isEndless, dwarfCount }: MakeNodeArgs): RunNode {
   const base = { id, floor, nodeIndex, difficulty: floor, rewards: { gold: 0, itemIds: [] as string[] }, next: [] as string[] };
 
   if (type === 'boss') {
@@ -112,7 +113,7 @@ function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKill
     // §3.3.7: элита — 1 из 3 rare/epic; волна §6.3: голем + подкрепление из пула слоя
     const itemIds = [0, 1, 2].map(() => randomKey(rng, unlocked, rng() < 0.5 ? 'rare' : 'epic'));
     const enemyIds: EnemyKind[] = ['e_golem'];
-    for (let i = 1; i < battleWaveTotal(floor, true); i++) enemyIds.push(pick(rng, poolFor(floor)));
+    for (let i = 1; i < battleWaveTotal(floor, true, dwarfCount ?? 2); i++) enemyIds.push(pick(rng, poolFor(floor)));
     return {
       ...base,
       type: 'elite',
@@ -129,7 +130,7 @@ function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKill
         ...base,
         type,
         rewards: { gold: nodeGold('battle', floor, depth), itemIds },
-        data: waveData(enemyGroup(rng, floor)),
+        data: waveData(enemyGroup(rng, floor, dwarfCount ?? 2)),
       };
     }
     case 'event':
@@ -140,16 +141,16 @@ function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKill
     case 'forge':
       return { ...base, type };
     default:
-      return { ...base, type: 'battle', data: waveData(enemyGroup(rng, floor)) };
+      return { ...base, type: 'battle', data: waveData(enemyGroup(rng, floor, dwarfCount ?? 2)) };
   }
 }
 
 // §6.3 enemyCount (пошаговая адаптация battleWaveTotal): полный состав волны,
 // боевой движок вводит его в бой порциями (передовой отряд + подкрепления)
-function enemyGroup(rng: PRNG, floor: number): EnemyKind[] {
+function enemyGroup(rng: PRNG, floor: number, dwarfCount: number): EnemyKind[] {
   const pool = poolFor(floor);
   const out: EnemyKind[] = [];
-  for (let i = 0; i < battleWaveTotal(floor, false); i++) out.push(pick(rng, pool));
+  for (let i = 0; i < battleWaveTotal(floor, false, dwarfCount); i++) out.push(pick(rng, pool));
   return out;
 }
 
@@ -158,7 +159,7 @@ function enemyGroup(rng: PRNG, floor: number): EnemyKind[] {
 function buildLayers(rng: PRNG, depth: number, unlocked: string[], bossesKilledTotal: number, isEndless: boolean): RunNode[] {
   const nodes: RunNode[] = [];
   const make = (floor: number, type: NodeType, idx: number) => {
-    nodes.push(makeNode({ rng, id: `f${floor}n${idx}`, floor, nodeIndex: idx, type, depth, unlocked, bossesKilledTotal, isEndless }));
+    nodes.push(makeNode({ rng, id: `f${floor}n${idx}`, floor, nodeIndex: idx, type, depth, unlocked, bossesKilledTotal, isEndless, dwarfCount: 2 }));
   };
 
   make(1, 'battle', 0);
@@ -292,7 +293,7 @@ function linearFallback(
   const map: RunNode[] = [];
   for (let floor = 1; floor <= depth; floor++) {
     const type: NodeType = floor === depth ? 'boss' : floor === depth - 1 ? 'rest' : 'battle';
-    const node = makeNode({ rng, id: `f${floor}n0`, floor, nodeIndex: 0, type, depth, unlocked, bossesKilledTotal, isEndless });
+    const node = makeNode({ rng, id: `f${floor}n0`, floor, nodeIndex: 0, type, depth, unlocked, bossesKilledTotal, isEndless, dwarfCount: 2 });
     map.push(node);
     if (floor > 1) map[floor - 2].next.push(node.id);
   }
@@ -350,7 +351,7 @@ export function extendMapEndless(run: RunState, meta: MetaState): RunState {
       if (type === 'elite') prevElite = true;
       const node = makeNode({
         rng, id: `f${floor}n${i}`, floor, nodeIndex: i, type, depth: endFloor,
-        unlocked, bossesKilledTotal: meta.bossesKilledTotal, isEndless: true,
+        unlocked, bossesKilledTotal: meta.bossesKilledTotal, isEndless: true, dwarfCount: run.dwarves.filter((d) => d.isAlive).length || 2,
       });
       layer.push(node);
       chunk.push(node);

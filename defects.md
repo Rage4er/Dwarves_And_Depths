@@ -26,3 +26,18 @@
 | §3.1.1 | При таймауте phase = 'defeat' | BattleState.status = 'timeout' сохраняется отдельным исходом (BattleResult.status маппится в 'lost' для наград/прогресса); сюжет финала несёт endReason ('timeout_collapse' / 'timeout_ancient') — экран 9 различает 4 причины, общий defeat-флоу не дублируется: меньше ревизий UI | `types.ts`, `logic/battle.ts`, `store.tsx` |
 
 **Противоречие внутри ТЗ (не среды):** §2.3 комментирует `'timeout_ancient' // пробуждение Древнего (элита/босс)`, но §3.1.1 относит элиту к обвалу («ТАЙМАУТ — ОБВАЛ (обычный бой, elite)»), а §3.1.2.1 шаг 10 задаёт правило `endReason = isBossFight ? 'timeout_ancient' : 'timeout_collapse'`. Реализовано по §3.1.2.1 (более поздняя и точная секция, согласна с §1): элитный бой → timeout_collapse — закреплено unit-тестом (e_golem: isElite, не isBoss). Комментарий §2.3 считать устаревшим.
+
+## [2026-10-05] [MAJOR] [phase-7] Обновление под v7.1
+
+Изменения:
+- Удалены авто-механики (авто-бой, авто-повтор, авто-экипировка)
+- Удалён `roleBias` у гномов и DwarfDef
+- Роль определяется только через экипировку; `'any'` = гном без экипировки
+- Добавлен `skipPrepScreen` — чекбокс на экране Кузницы, пропуск экрана подготовки
+- Баланс: HP врагов ×5, cooldown гномов ×1.5, enemyCount = 1.5×дwarfCount
+- Добавлена функция `battleDifficulty` (DPS/EHP)
+- Support heal ability: ATK × 0.5, цель HP% < 90%
+- Удалён `AutoEquipTemplate`
+- Миграция старых сейвов: удаление `unlocks` и `autoEquipTemplate`
+
+Все изменения соответствуют PROMPT.md v7.1.
