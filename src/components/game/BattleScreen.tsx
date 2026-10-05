@@ -273,7 +273,6 @@ export function BattleScreen() {
   };
 
   const bossName = cur.foes.find((f) => f.isBoss)?.name ?? 'Босс';
-  const foesAlive = cur.foes.filter((f) => f.alive).length;
   const floor = state.run?.floor ?? 0;
 
   // финальные анимации — только для погибших в финальном раунде
@@ -372,9 +371,7 @@ export function BattleScreen() {
             <span>этаж {floor}</span>
             <span className={warning ? 'text-red-300' : undefined}>раунд {cur.round}/{turnLimit}</span>
           </div>
-          <div className="rounded bg-black/50 px-2 py-1 text-[10px] font-black text-red-300 ring-1 ring-red-900/60 sm:text-xs">
-            враги {foesAlive}/{cur.enemiesTotal}
-          </div>
+        </div>
         </div>
         <div className="flex items-center gap-1.5">
           {SPEEDS.map((s, i) => (
