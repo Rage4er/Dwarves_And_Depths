@@ -6,29 +6,26 @@ const nextConfig = {
     SWC_CACHE: "1",
     WEBPACK_CACHE: "memory",
   },
-  async rewrites() {
-    return [{ source: "/public/:path*", destination: "/:path*" }];
+  // GitHub Pages: статический экспорт (SPA, клиентская маршрутизация)
+  output: 'export',
+  distDir: 'out',
+  trailingSlash: true,
+  rewrites() {
+    return [{ source: '/public/:path*', destination: '/:path*' }];
   },
-  async headers() {
+  headers() {
     return [
       {
-        // Apply to all pages in the app
-        source: "/:path*",
+        source: '/:path*',
         headers: [
           {
-            key: "Content-Security-Policy",
-            // Allow any site to embed this page in an <iframe>
+            key: 'Content-Security-Policy',
             value: "frame-ancestors *;",
           },
-          // NOTE: X-Frame-Options is legacy and does not support a wildcard;
-          // if your platform injects X-Frame-Options: SAMEORIGIN you may need
-          // to remove/override it via platform settings.
         ],
       },
     ];
   },
-  distDir: ".next",
-  trailingSlash: true,
   // Build optimization
   experimental: {
     // Modern experimental features for Next.js 15
