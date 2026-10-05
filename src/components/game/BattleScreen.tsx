@@ -372,7 +372,6 @@ export function BattleScreen() {
             <span className={warning ? 'text-red-300' : undefined}>раунд {cur.round}/{turnLimit}</span>
           </div>
         </div>
-        </div>
         <div className="flex items-center gap-1.5">
           {SPEEDS.map((s, i) => (
             <button

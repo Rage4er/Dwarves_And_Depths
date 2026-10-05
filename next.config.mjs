@@ -12,22 +12,8 @@ const nextConfig = {
   trailingSlash: true,
   basePath: '/Dwarves_And_Depths',
   assetPrefix: '/Dwarves_And_Depths/',
-  rewrites() {
-    return [{ source: '/public/:path*', destination: '/:path*' }];
-  },
-  headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "frame-ancestors *;",
-          },
-        ],
-      },
-    ];
-  },
+  // GitHub Pages: static export doesn't support rewrites/headers —
+  // CSP is set via out/_headers file instead
   // Build optimization
   experimental: {
     // Modern experimental features for Next.js 15
