@@ -1,6 +1,6 @@
-# ТЗ v7.0: «Гномы и Глубины» — объединённый апдейт
+# ТЗ v7.1: «Гномы и Глубины» — финальная production-версия
 
-*Единый документ для запуска с пустой папки. Все баги v6.6 закрыты: 20 гномов, Growing Depth, финальный босс, бесконечный режим, воскрешение. v6.8: детальная генерация карты, экран карты, таблица слоёв, награды узлов, пример карты. v6.9: endReason, эпичный финал таймаута (обвал / Древний), лимиты hp_regen. v7.0: ranged-враги (e_archer_goblin, e_shaman), превью врагов без статов, карточки гномов с иконками статов, гномий шрифт имён, enemyTypes. Matter.js не используется.*
+*Единый документ для запуска с пустой папки. Все баги v6.6 закрыты: 20 гномов, Growing Depth, финальный босс, бесконечный режим, воскрешение. v6.8: детальная генерация карты, экран карты, таблица слоёв, награды узлов, пример карты. v6.9: endReason, эпичный финал таймаута (обвал / Древний), лимиты hp_regen. v7.0: ranged-враги (e_archer_goblin, e_shaman), превью врагов без статов, карточки гномов с иконками статов, гномий шрифт имён, enemyTypes. v7.1: удалены авто-механики, роли через экипировку, баланс DPS/EHP, support heal, skipPrepScreen. Matter.js не используется.*
 
 ---
 
@@ -319,8 +319,7 @@ interface Dwarf {
   currentHP: number;
   isAlive: boolean;
   speed: number;
-  role: Role;
-  roleBias: Role;
+  role: Role;              // v7.1: 'any' если нет экипировки с ролью
   statusEffects: StatusEffect[];
   localSlotBonus: number;
 }
@@ -424,14 +423,6 @@ interface Choice {
   choiceIndex: number;
 }
 
-interface AutoEquipTemplate {
-  tank:    { weapon?: string; armor?: string; trinket?: string };
-  warrior: { weapon?: string; armor?: string; trinket?: string };
-  ranged:  { weapon?: string; armor?: string; trinket?: string };
-  mage:    { weapon?: string; armor?: string; trinket?: string };
-  support: { weapon?: string; armor?: string; trinket?: string };
-}
-
 interface MetaState {
   legacy: number;
   maxSlots: number;
@@ -447,12 +438,7 @@ interface MetaState {
   bossesKilledTotal: number;         // v6.7: всего убито боссов
   endlessUnlocked: boolean;          // v6.7: открыт ли бесконечный режим
   maxDepthEver: number;              // v6.7: рекорд по глубине
-  unlocks: {
-    autoBattle: boolean;
-    autoRepeat: boolean;
-    autoEquip: boolean;
-  };
-  autoEquipTemplate?: AutoEquipTemplate;
+  skipPrepScreen: boolean;           // v7.1: UI-настройка «Не показывать экран подготовки»
 }
 ```
 
@@ -634,9 +620,19 @@ sortOrder = { tank: 0, warrior: 1, ranged: 2, mage: 2, support: 3 }
 - mage:    250 px
 - support: 150 px
 
-COOLDOWN ПО РОЛЯМ:
-- tank / warrior / support: 600 мс
-- ranged / mage:            400 мс
+COOLDOWN ПО РОЛЯМ (v7.1: ×1.5):
+- tank / warrior / support: 900 мс
+- ranged / mage:            600 мс
+
+SUPPORT ability (v7.1):
+- Range: 150 px, Cooldown: 900 мс
+- heal = ATK × 0.5, target: союзник с наименьшим HP% в радиусе 150
+- Условие: HP% < 90%. Если все ≥ 90% → attack врага
+- Приоритет: heal > attack
+
+РОЛИ 'any' (v7.1): гном без экипировки с ролью
+- Range: 80, Cooldown: 900, Damage: ×1.0, Taunt: ❌
+- Нет синергий, нет buff'ов от ролей
 
 МОДИФИКАТОР УРОНА ДАЛЬНЕГО БОЯ:
 - ranged / mage: finalDmg × 0.5
@@ -681,6 +677,14 @@ finalDmg = max(minDamage(floor), atk - def × (1 - pierce))
     - finalDmg = /* формула выше */
     - cooldown = ATTACK_COOLDOWN_BASE(role) / (1 + speed / 30)
     - target.x += BOUNCE_DISTANCE
+
+// v7.1: Support ability (heal)
+  Если role === 'support' и cooldown ≤ 0:
+    - Найти союзника с наименьшим HP% в range 150
+    - Если HP% < 90%:
+        - heal(ATK × 0.5)
+        - cooldown = ATTACK_COOLDOWN_BASE['support']
+        - continue (пропустить атаку)
 
 Для каждого врага (isAlive):
   - attackCooldown -= dt
@@ -938,16 +942,32 @@ export function simulateBattle(
 }
 ```
 
-#### §3.1.3. Role resolution
+#### §3.1.3. Role resolution (v7.1)
 
 ```
-Dwarf.role = роль предмета в weapon slot.
+Dwarf.role = роль предмета в самом приоритетном слоте.
 Priority: weapon > armor > trinket > rune.
-Если 'any' → пропускается.
-Если weapon нет → roleBias (§6.1).
+
+АЛГОРИТМ:
+1. Проверить weapon. Если role != 'any' → role = weapon.role
+2. Иначе проверить armor. Если role != 'any' → role = armor.role
+3. Иначе проверить trinket. Если role != 'any' → role = trinket.role
+4. Иначе проверить rune. Если role != 'any' → role = rune.role
+5. Если ничего нет → role = 'any'
+
+v7.1: 'any' = гном без роли (без weapon с ролью)
+      Роль присваивается ТОЛЬКО через экипировку
+
+ГОМН БЕЗ РОЛИ ('any'):
+- Range: 80 px
+- Cooldown: 900 мс
+- Damage: ×1.0
+- Нет синергий
+- Нет taunt
+- Пушечное мясо
 ```
 
-#### §3.1.4. Synergies
+#### §3.1.4. Synergies (v7.1)
 
 ```typescript
 type SynergyCondition =
@@ -957,6 +977,11 @@ type SynergyCondition =
 ```
 
 **4 синергии — см. §6.6.**
+
+**СИНЕРГИИ И 'any' (v7.1):**
+- Гном с role = 'any' НЕ считается ни за какую роль
+- Не активирует синергии
+- Не получает бонусов от синергий
 
 #### §3.1.5. Target selection
 
@@ -1030,17 +1055,6 @@ export function simulateRun(
 |---|---|---|
 | Offline-Наследие | reopen | Δ = max(0, Date.now() - meta.lastSeenAt) / 3.6e6; gain = min(Δ, 8) × (1 + smithy × 0.5 + offlineBonus × 0.1) |
 | Сон кузницы | reopen | itemRolls = floor(Δ); случайные unlocked items |
-| Авто-бой | runCount≥3 | пропуск кнопки «В бой» |
-| Авто-повтор | runCount≥5 | авто-выбор предыдущего типа узла |
-| Авто-подбор | runCount≥7 | шаблон role→slot применяется |
-
-#### §3.2.1. AutoEquip
-
-```
-Триггер: unlock.autoEquip = true.
-Для каждого dwarf: role → template[role] → надеть по slots.
-Применять к новым гномам (не к deadDwarves).
-```
 
 ---
 
@@ -1386,7 +1400,7 @@ function purchaseUpgrade(meta: MetaState, def: SmithyUpgradeDef): MetaState {
 
 | # | Экран | Элементы |
 |---|---|---|
-| 1 | Старт (Кузница) | Legacy counter, [Новый забег], [Бесконечный забег] (если unlocked), 4 карточки, счётчики unlocks, maxDepthEver |
+| 1 | Старт (Кузница) | Legacy counter, [Новый забег], [Бесконечный забег] (если unlocked), 4 карточки, счётчики unlocks, maxDepthEver, чекбокс «Не показывать экран подготовки» |
 | 2 | Выбор отряда | Карточки гномов: имя (гномий шрифт), спрайт 96×96, характеристики иконками (❤️ HP, ⚔️ ATK, 🛡️ DEF, 👟 SPD), кнопка [Выбрать]. Счётчик «Выбрано X/Y» |
 | 3 | Подготовка боя | N позиций, drag&drop equip, инвентарь, gold, синергии, **превью врагов (типы без статов)**, [В бой] |
 | 4 | Бой | Phaser canvas, HP-бары, этаж, враги X/Y, параллакс-фон |
@@ -1482,7 +1496,34 @@ DoD §4.2: с любого доступного узла виден путь к 
 - Никаких статов, количества и числа подкреплений
 - Для elite и боссов — то же правило (уникальные типы)
 
-### §4.5. Экран 2 — карточки гномов (v7.0)
+### §4.5. Настройка «Не показывать экран подготовки» (v7.1)
+
+РАСПОЛОЖЕНИЕ:
+  Экран 1 (Кузница), нижняя часть.
+
+UI:
+  [ ] Не показывать экран подготовки
+
+ПОВЕДЕНИЕ:
+  Если ВКЛЮЧЁН:
+    - Клик на узел «Бой» на карте → сразу бой
+    - Экран 3 пропускается
+    - Отряд выставляется автоматически по сортировке
+    - Экипировка остаётся той, что была надета вручную
+
+  Если ВЫКЛЮЧЕН (default):
+    - Клик на узел «Бой» → экран 3
+    - Игрок сам расставляет и экипирует
+    - Жмёт «В бой»
+
+СОХРАНЕНИЕ:
+  meta.skipPrepScreen (boolean)
+
+ВАЖНО:
+  Это НЕ авто-механика — игрок сам включает
+  Игрок всегда может выключить
+
+### §4.6. Экран 2 — карточки гномов (v7.0)
 
 ФОРМАТ КАРТОЧКИ:
   - Имя гнома — гномий шрифт (font-runic)
@@ -1597,30 +1638,30 @@ Fallback-стек: 'Runic', 'Cinzel', serif — кириллица отобра�
 
 ## §6. ДАННЫЕ
 
-### §6.1. Гномы (20, v6.7)
+### §6.1. Гномы (20, v6.7; v7.1: без roleBias)
 
-| ID | Имя | HP | ATK | DEF | SPD | roleBias |
-|---|---|---|---|---|---|---|
-| d_brom | Бром | 120 | 8 | 15 | 60 | tank |
-| d_grim | Грим | 100 | 12 | 8 | 80 | warrior |
-| d_thorvin | Торвин | 110 | 10 | 10 | 70 | support |
-| d_bombur | Бомбур | 140 | 6 | 20 | 40 | tank |
-| d_bifur | Бифур | 95 | 13 | 7 | 85 | warrior |
-| d_dvalin | Двалин | 130 | 7 | 18 | 50 | tank |
-| d_bofur_2 | Бофур II | 100 | 15 | 5 | 90 | ranged |
-| d_balin | Балин | 115 | 9 | 12 | 75 | support |
-| d_bifur_2 | Бифур II | 105 | 12 | 10 | 80 | warrior |
-| d_nori | Нори | 90 | 14 | 6 | 100 | ranged |
-| d_bombur_2 | Бомбур II | 125 | 8 | 16 | 55 | tank |
-| d_dwalin_2 | Двалин II | 135 | 7 | 19 | 45 | tank |
-| d_dori | Дори | 95 | 14 | 6 | 95 | ranged |
-| d_nori_2 | Нори II | 85 | 15 | 5 | 105 | ranged |
-| d_bofur | Бофур | 105 | 11 | 11 | 70 | mage |
-| d_oin | Оин | 120 | 10 | 12 | 65 | warrior |
-| d_gloin | Глоин | 110 | 11 | 11 | 70 | support |
-| d_balin_2 | Балин II | 105 | 13 | 9 | 80 | warrior |
-| d_thorin | Торин | 130 | 12 | 14 | 55 | tank |
-| d_fili | Фили | 90 | 16 | 4 | 110 | ranged |
+| ID | Имя | HP | ATK | DEF | SPD |
+|---|---|---|---|---|---|
+| d_brom | Бром | 120 | 8 | 15 | 60 |
+| d_grim | Грим | 100 | 12 | 8 | 80 |
+| d_thorvin | Торвин | 110 | 10 | 10 | 70 |
+| d_bombur | Бомбур | 140 | 6 | 20 | 40 |
+| d_bifur | Бифур | 95 | 13 | 7 | 85 |
+| d_dvalin | Двалин | 130 | 7 | 18 | 50 |
+| d_bofur_2 | Бофур II | 100 | 15 | 5 | 90 |
+| d_balin | Балин | 115 | 9 | 12 | 75 |
+| d_bifur_2 | Бифур II | 105 | 12 | 10 | 80 |
+| d_nori | Нори | 90 | 14 | 6 | 100 |
+| d_bombur_2 | Бомбур II | 125 | 8 | 16 | 55 |
+| d_dwalin_2 | Двалин II | 135 | 7 | 19 | 45 |
+| d_dori | Дори | 95 | 14 | 6 | 95 |
+| d_nori_2 | Нори II | 85 | 15 | 5 | 105 |
+| d_bofur | Бофур | 105 | 11 | 11 | 70 |
+| d_oin | Оин | 120 | 10 | 12 | 65 |
+| d_gloin | Глоин | 110 | 11 | 11 | 70 |
+| d_balin_2 | Балин II | 105 | 13 | 9 | 80 |
+| d_thorin | Торин | 130 | 12 | 14 | 55 |
+| d_fili | Фили | 90 | 16 | 4 | 110 |
 
 ### §6.2. Предметы (24) — без изменений
 
@@ -1651,20 +1692,37 @@ Fallback-стек: 'Runic', 'Cinzel', serif — кириллица отобра�
 | e_guardian_plate | Броня стража | armor | tank | — | +18 | +25 | aura_def value=10 | epic | 3 | metal |
 | e_hunter_bow | Лук охотника | weapon | ranged | +16 | — | — | pierce value=50 | epic | 3 | wood |
 
-### §6.3. Enemy table
+**МАГИ (v7.1):**
+- Магов-гномов в таблице НЕТ
+- Роль mage даётся только через посохи:
+  * e_apprentice_staff (weapon, mage)
+  * e_fire_staff (weapon, mage)
+  * e_arcane_tome (weapon, mage)
+- Если гном надел посох → role = 'mage'
+- Если снял посох → role = 'any' (или другая роль по armor)
+
+**SUPPORT-ПРЕДМЕТЫ (v7.1):**
+- Предметы с role: support дают гному роль support:
+  * e_healing_charm (trinket, support, hp_regen)
+  * e_war_drum (trinket, support, aura_spd)
+- Если гном с support-предметом:
+  * role = 'support'
+  * Может лечить союзников (heal = ATK × 0.5)
+
+### §6.3. Enemy table (v7.1: HP ×5, balance DPS/EHP)
 
 | Enemy ID | Name | HP | ATK | DEF | SPD | Effects | Boss | Elite |
 |---|---|---|---|---|---|---|---|---|
-| e_rat | Крыса | 10 | 2 | 0 | 80 | — | — | — |
-| e_goblin | Гоблин | 15 | 3 | 1 | 70 | — | — | — |
-| **e_archer_goblin** | **Гоблин-лучник** | **10** | **3** | **0** | **110** | **ranged (v7.0)** | — | — |
-| e_spider | Паук | 12 | 3 | 0 | 100 | poison 20% | — | — |
-| e_slime | Слизень | 25 | 2 | 3 | 40 | hp_regen 2 | — | — |
-| e_orc | Орк | 40 | 6 | 3 | 60 | — | — | ✅ |
-| **e_shaman** | **Шаман** | **20** | **2** | **2** | **80** | **ranged + poison 30% (v7.0)** | — | — |
-| e_golem | Голем | 80 | 8 | 6 | 40 | stun 20% | — | ✅ |
-| e_heart | Сердце Глубин | 200 | 12 | 8 | 50 | splash 30% | ✅ | — |
-| **e_forge_demon** | **Демон Кузни** | **500** | **20** | **12** | **40** | **summon value=10** | **✅ (финал)** | — |
+| e_rat | Крыса | 50 | 2 | 0 | 80 | — | — | — |
+| e_goblin | Гоблин | 75 | 3 | 1 | 70 | — | — | — |
+| **e_archer_goblin** | **Гоблин-лучник** | **50** | **3** | **0** | **110** | **ranged (v7.0)** | — | — |
+| e_spider | Паук | 60 | 3 | 0 | 100 | poison 20% | — | — |
+| e_slime | Слизень | 125 | 2 | 3 | 40 | hp_regen 2 | — | — |
+| e_orc | Орк | 200 | 6 | 3 | 60 | — | — | ✅ |
+| **e_shaman** | **Шаман** | **100** | **2** | **2** | **80** | **ranged + poison 30% (v7.0)** | — | — |
+| e_golem | Голем | 400 | 8 | 6 | 40 | stun 20% | — | ✅ |
+| e_heart | Сердце Глубин | 1000 | 12 | 8 | 50 | splash 30% | ✅ | — |
+| **e_forge_demon** | **Демон Кузни** | **2500** | **20** | **12** | **40** | **summon value=10** | **✅ (финал)** | — |
 | **e_ancient** | **Древний** | **9999** | **999** | **999** | **10** | **—** | **✅ (только при таймауте)** | — |
 
 **ОСОБЕННОСТЬ e_ancient (v6.9):**
@@ -1702,11 +1760,12 @@ Fallback-стек: 'Runic', 'Cinzel', serif — кириллица отобра�
 | 11–15 | e_golem, e_orc, e_heart (как обычный враг) |
 | 16+ | e_golem, e_orc, e_heart; скейл по depth (§6.3.1) |
 
-**Число врагов:**
+**Число врагов (v7.1):**
 
 ```typescript
-enemyCount(floor, isElite) = Math.min(15, Math.floor(
-  5 + Math.log2(floor + 1) * 3 + (isElite ? 4 : 0)
+// v7.1: 1.5 врага на гнома
+enemyCount(floor, isElite, dwarfCount) = Math.min(20, Math.max(3,
+  Math.round((Math.round(dwarfCount * 1.5) + Math.floor(floor / 3)) * (isElite ? 1.5 : 1.0))
 ))
 ```
 
@@ -1788,8 +1847,9 @@ const ATTACK_RANGE_BY_ROLE = {
   tank: 80, warrior: 80, ranged: 300, mage: 250, support: 150
 };
 const ATTACK_COOLDOWN_BASE = {
-  tank: 600, warrior: 600, support: 600,
-  ranged: 400, mage: 400
+  // v7.1: ×1.5 для баланса DPS
+  tank: 900, warrior: 900, support: 900,
+  ranged: 600, mage: 600
 };
 const RANGED_DMG_MODIFIER = 0.5;    // v6.7: было 0.7
 const HP_REGEN_CAP = 3;             // v6.9: максимум HP/тик для гномов
@@ -1802,6 +1862,34 @@ const COLUMN_SPACING = 80;
 const MAX_DWARVES = 10;
 const BOUNCE_DISTANCE = 100;
 const ENDLESS_MAX_DEPTH = 100;      // v6.7
+
+// v7.1: расчёт сложности боя через DPS/EHP
+function battleDifficulty(dwarves: Dwarf[], enemies: Enemy[]): number {
+  const sumDps = (units: (Dwarf | Enemy)[]): number => {
+    return units.reduce((sum, u) => {
+      const isDwarf = 'equipment' in u;
+      const cooldown = isDwarf
+        ? ATTACK_COOLDOWN_BASE[(u as Dwarf).role] / (1 + u.speed / 30)
+        : ENEMY_ATTACK_COOLDOWN;
+      return sum + u.baseATK / (cooldown / 1000);
+    }, 0);
+  };
+  const sumEhp = (units: (Dwarf | Enemy)[]): number => {
+    return units.reduce((sum, u) => {
+      const mit = u.baseDEF / (u.baseDEF + 100);
+      return sum + u.baseHP / (1 - mit);
+    }, 0);
+  };
+  const dpsDwarves = sumDps(dwarves);
+  const dpsEnemies = sumDps(enemies);
+  const ehpDwarves = sumEhp(dwarves);
+  const ehpEnemies = sumEhp(enemies);
+  if (dpsDwarves === 0 || ehpDwarves === 0) return Infinity;
+  return (dpsEnemies / dpsDwarves) * (ehpEnemies / ehpDwarves);
+}
+
+const DIFFICULTY_MIN = 0.8;
+const DIFFICULTY_MAX = 1.2;
 
 function minDamage(floor: number): number {
   return Math.max(1, Math.floor(floor / 2));
@@ -1836,10 +1924,13 @@ function getDepth(meta: MetaState, isEndless: boolean, endlessFloor: number): nu
     : 8 + meta.bossesKilledTotal;
 }
 
-function enemyCount(floor, isElite) {
-  return Math.min(15, Math.floor(
-    5 + Math.log2(floor + 1) * 3 + (isElite ? 4 : 0)
-  ));
+// v7.1: 1.5 врага на гнома
+function enemyCount(floor, isElite, dwarfCount) {
+  const base = Math.round(dwarfCount * 1.5);
+  const floorBonus = Math.floor(floor / 3);
+  const eliteMod = isElite ? 1.5 : 1.0;
+  const raw = Math.round((base + floorBonus) * eliteMod);
+  return Math.max(3, Math.min(20, raw));
 }
 
 offlineGain(deltaHours, meta) =
@@ -2021,7 +2112,17 @@ aiPolicy: 'greedy':
   5. В rest — heal, если avg HP < 60%
 
 Прогон: simulateRun(seed, {aiPolicy:'greedy'}) для seed = 1..10.
-Acceptance: 40–60% win rate.
+
+Acceptance:
+- Win rate: 40–60%
+- Battle difficulty: 0.8–1.2 (для 80% боёв)
+- Средний бой: 15–30 сек (обычный), 35–55 (босс)
+- Смертность гномов: 30–50% за забег
+
+Логирование в progress.md:
+- Средний battleDifficulty
+- Средний TTK на бой
+- Боёв с difficulty > 1.2: < 10%
 
 Дополнительно:
 - Проверить: 20 гномов разблокируются за 15-20 забегов
@@ -2100,26 +2201,36 @@ if (parseFloat(mb) > 5) {
 - [ ] deadDwarves НЕ воскрешаются при обычных забегах
 - [ ] Мета-сохранение (localStorage + Date.now())
 - [ ] Offline income (8h симуляция)
-- [ ] 3 auto-механики (3/5/7)
 - [ ] Кузница: 4 апгрейда
 - [ ] **20 гномов, разблокировка по depth**
 - [ ] 24 предмета, ≥ 5 обычных врагов
 - [ ] Синергии (4 типа)
 - [ ] Вид сбоку, гномы бегут, непрерывный поток врагов
 - [ ] Pierce работает в формуле урона
-- [ ] Ranged/mage стреляют с 300/250 px, cooldown 400 мс, урон ×0.5
+- [ ] Ranged/mage стреляют с 300/250 px, cooldown 600 мс, урон ×0.5
 - [ ] Явный taunt (magnet_shield) перебивает неявный
 - [ ] isBossFight корректно определяет лимит времени
 - [ ] isBossFight устанавливается в createBattleState
 - [ ] tauntMemory работает (2 сек после смерти)
 - [ ] **Growing Depth: depth = 8 + bossesKilledTotal**
-- [ ] **Финальный босс e_forge_demon (HP 500)**
+- [ ] **Финальный босс e_forge_demon (HP 2500)**
 - [ ] **Бесконечный режим открывается после финала**
 - [ ] **Воскрешение в бесконечном режиме при смерти всех**
 - [ ] **minDamage растёт с floor**
 - [ ] **scaleATK растёт медленнее (0.04 vs 0.08)**
 - [ ] **Карта v6.8: босс достижим из всех узлов предбоссового слоя (validateMap), слой depth-2 — shop/rest**
 - [ ] **Награды по типам узлов §3.3.7; выход из бесконечного: abandoned / victory_endless (depth > 100)**
+- [ ] skipPrepScreen: чекбокс «Не показывать экран подготовки»
+- [ ] roleBias удалён из Dwarf
+- [ ] Гном без экипировки → role = 'any'
+- [ ] UI: карточка показывает «Гном» без экипировки
+- [ ] Перепрофилирование через экипировку работает
+- [ ] 'any' не активирует синергии
+- [ ] Support: heal ability работает
+- [ ] battleDifficulty в коридоре 0.8–1.2
+- [ ] HP врагов ×5, cooldown гномов ×1.5
+- [ ] enemyCount = 1.5 врага на гнома
+- [ ] Маги через посохи (e_apprentice_staff, e_fire_staff, e_arcane_tome)
 - [ ] UI на 667×375 и 1920×1080
 - [ ] FPS ≥ 30 mobile / ≥ 60 desktop
 - [ ] Fixed timestep 60 Hz, детерминизм сохранён
@@ -2144,7 +2255,7 @@ if (parseFloat(mb) > 5) {
 - [ ] git tag для 7 фаз
 - [ ] architecture.md соответствует §0.4
 
-**Итого: 38/38 обязательны.**
+**Итого: 47/47 обязательны.**
 
 ---
 
@@ -2197,7 +2308,7 @@ if (parseFloat(mb) > 5) {
   5. Объективный чеклист UI пройден
   6. Только тогда → progress.md с хешем коммита и ссылкой на скрин
 
-Остановка запрещена, пока все 38 пунктов §9 не будут ✅.
+Остановка запрещена, пока все 47 пунктов §9 не будут ✅.
 Стоп-фраза §0 имеет приоритет выше этого правила.
 ```
 
@@ -2249,6 +2360,50 @@ if (parseFloat(mb) > 5) {
 ---
 
 **ТЗ v6.9 готово к запуску. Копируйте в PROMPT.md репозитория.**
+
+---
+
+## 📊 Сводка изменений v7.0 → v7.1
+
+| # | Блок | Что | Правок |
+|---|---|---|---|
+| 1 | §2.3 | Удалён `AutoEquipTemplate` | 1 |
+| 2 | §2.3 | `MetaState`: убран `unlocks`, добавлен `skipPrepScreen` | 1 |
+| 3 | §2.3 | `Dwarf`: убран `roleBias` | 1 |
+| 4 | §3.2 | Удалены авто-бой, авто-повтор, авто-подбор | 1 |
+| 5 | §3.2.1 | Удалён AutoEquip | 1 |
+| 6 | §4 | Экран 1: чекбокс skipPrepScreen | 1 |
+| 7 | §4.5 | Добавлен §4.5 skipPrepScreen | 1 |
+| 8 | §6.1 | Гномы: убран столбец roleBias | 1 |
+| 9 | §6.2 | Маги через посохи, support-предметы | 1 |
+| 10 | §6.3 | HP врагов ×5 | 1 |
+| 11 | §6.4 | Cooldown гномов ×1.5 | 1 |
+| 12 | §6.4 | enemyCount = 1.5 врага на гнома | 1 |
+| 13 | §6.4 | battleDifficulty (DPS/EHP) | 1 |
+| 14 | §3.1.1 | Support ability (heal) | 1 |
+| 15 | §3.1.1 | Роли 'any' (без экипировки) | 1 |
+| 16 | §3.1.3 | Role resolution: алгоритм без roleBias | 1 |
+| 17 | §3.1.4 | 'any' не активирует синергии | 1 |
+| 18 | §7.5 | Balance test: battleDifficulty 0.8–1.2 | 1 |
+| 19 | §9 | Обновлён DoD: 47 пунктов | 1 |
+| 20 | §9.1 | Обновлены критерии v7.0 | 1 |
+| **Итого** | | | **20** |
+
+**Удалено:**
+- ❌ Авто-бой, авто-повтор, авто-экипировка
+- ❌ AutoEquipTemplate
+- ❌ unlocks в MetaState
+- ❌ roleBias у гномов
+
+**Добавлено:**
+- ✅ skipPrepScreen + чекбокс
+- ✅ Баланс: HP врагов ×5, cooldown ×1.5, enemyCount 1.5, battleDifficulty
+- ✅ Роли через экипировку: `'any'` = гном без роли
+- ✅ Support ability: heal
+- ✅ Маги через посохи
+- ✅ 'any' не активирует синергии
+
+**DoD: 47/47.**
 ---
 
 ## §9.1. DoD v7.0 (дополнительные критерии)
@@ -2260,3 +2415,17 @@ if (parseFloat(mb) > 5) {
 - [ ] Экран 3: блок «ВПЕРЕДИ» — уникальные типы, спрайт + название (гномий шрифт), БЕЗ статов и количества (§4.4)
 - [ ] Экран 2: карточки гномов — имя гномьим шрифтом, спрайт 96×96, статы иконками ❤️⚔️🛡️👟 (§4.5)
 - [ ] Win rate на seeds 1..10 остаётся в коридоре 40–60% после добавления ranged-врагов
+
+## §9.2. DoD v7.1 (дополнительные критерии)
+
+- [ ] `skipPrepScreen` в `MetaState`; чекбокс «Не показывать экран подготовки» на экране 1
+- [ ] `roleBias` удалён из `Dwarf`; `role` определяется через экипировку
+- [ ] Гном без экипировки → role = 'any' (cooldown 900, range 80, damage ×1.0)
+- [ ] 'any' не активирует синергии
+- [ ] Support ability: heal = ATK × 0.5, target с наименьшим HP% < 90%
+- [ ] HP врагов ×5 (e_rat: 50, e_goblin: 75, e_slime: 125, e_orc: 200, e_golem: 400, e_heart: 1000, e_forge_demon: 2500)
+- [ ] Cooldown гномов ×1.5 (tank/warrior/support: 900, ranged/mage: 600)
+- [ ] enemyCount = 1.5 врага на гнома (base + floorBonus, cap 20)
+- [ ] battleDifficulty в коридоре 0.8–1.2 для 80% боёв
+- [ ] Маги через посохи (e_apprentice_staff, e_fire_staff, e_arcane_tome)
+- [ ] Support-предметы (e_healing_charm, e_war_drum) дают роль support
