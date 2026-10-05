@@ -48,7 +48,6 @@ export function slotLimit(dwarf: Dwarf, maxSlots: number): number {
 }
 
 export function canEquip(item: Equipment, dwarf: Dwarf, maxSlots: number): boolean {
-  if (item.role !== 'any' && item.role !== dwarf.role) return false;
   const sameSlot = dwarf.equipment.filter((e) => e.slot === item.slot).length;
   if (sameSlot > 0) return false;
   return dwarf.equipment.length < slotLimit(dwarf, maxSlots);

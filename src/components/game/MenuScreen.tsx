@@ -122,13 +122,18 @@ export function MenuScreen() {
             const level = meta[def.metaField];
             const cost = upgradeCost(def.baseCost, level);
             const maxed = level >= def.maxLevel;
+            // v7.1: maxPartySize показывает текущий размер отряда
+            let effectText = def.effectPerLevel;
+            if (def.id === 'maxPartySize') {
+              effectText = `Сейчас: ${level + 2} гномов на старте`;
+            }
             return (
               <div key={def.id} className="flex items-center justify-between gap-3 rounded-lg bg-stone-900/70 p-3 ring-1 ring-stone-800">
                 <div>
                   <div className="text-sm font-bold text-stone-100">
-                    {def.name} <span className="text-amber-400">ур. {level}</span>
+                    {def.name} <span className="text-amber-400">ур. {level}{def.maxLevel === Infinity ? '' : ` / ${def.maxLevel}`}</span>
                   </div>
-                  <div className="text-[11px] text-stone-400">{def.effectPerLevel}</div>
+                  <div className="text-[11px] text-stone-400">{effectText}</div>
                 </div>
                 <button
                   disabled={maxed || meta.legacy < cost}
@@ -159,7 +164,7 @@ export function MenuScreen() {
           <p><b className="text-amber-300">Отряд.</b> Гном занимает линию: авангард принимает +50% урона, тыл — лишь половину. Роль задаёт лучшее оружие: страж провоцирует и держит удар, маг поджигает, стрелок бьёт издалека.</p>
           <p><b className="text-amber-300">Бой.</b> Автоматический, по инициативе. Горение, яд, оглушение, вампиризм, удары по площади. Бой на лимите ходов — поражение, у босса лимит больше.</p>
           <p><b className="text-amber-300">Смерть.</b> Павший гном выбывает навсегда, его снаряжение падает в рюкзак. Проигранный бой завершает поход — но в бесконечном спуске отряд возрождается новым поколением, а глубина не сбрасывается.</p>
-          <p><b className="text-amber-300">Таверна.</b> Пока вас нет, кузня работает: наследие капает само (до 8 часов), а «сон кузницы» приносит предметы. После 3/5/7 походов открываются авто-бой, авто-повтор и авто-экипировка.</p>
+          <p><b className="text-amber-300">Таверна.</b> Пока вас нет, кузня работает: наследие капает само (до 8 часов), а «сон кузницы» приносит предметы. Размер отряда расширяется в кузне за наследие.</p>
         </div>
       )}
     </div>

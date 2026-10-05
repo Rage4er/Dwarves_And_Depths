@@ -17,16 +17,14 @@ import { DwarfCard, Gold, HpBar, ItemCard } from './bits';
 import { DwarfSprite, FoeSprite } from './sprites';
 import { playSfx } from '@/lib/game/sfx';
 
-// Почему предмет нельзя надеть ни на кого из живых (порядок причин — как в canEquip)
+// v7.1: роль даётся экипировкой, любой гном может надеть любой предмет
 function whyNotEquip(item: Equipment, dwarves: Dwarf[], maxSlots: number): string {
   const alive = dwarves.filter((d) => d.isAlive);
   if (!alive.length) return 'В отряде нет живых гномов';
-  const byRole = item.role === 'any' ? alive : alive.filter((d) => d.role === item.role);
-  if (!byRole.length) return `Роль предмета: ${ROLE_NAME[item.role]} — таких гномов в отряде нет`;
-  if (byRole.every((d) => d.equipment.some((e) => e.slot === item.slot))) {
-    return `Слот «${SLOT_NAME[item.slot]}» занят у всех подходящих — сначала снимите предмет`;
+  if (alive.every((d) => d.equipment.some((e) => e.slot === item.slot))) {
+    return `Слот «${SLOT_NAME[item.slot]}» занят у всех — сначала снимите предмет`;
   }
-  return `Лимит слотов гнома (${slotLimit(byRole[0], maxSlots)}) — расширяется в кузне за наследие`;
+  return `Лимит слотов гнома (${slotLimit(alive[0], maxSlots)}) — расширяется в кузне за наследие`;
 }
 
 // ── Экран 2: сбор отряда (§3.4) ──────────────────────────────────────
@@ -386,6 +384,7 @@ export function InventoryScreen() {
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {run.inventory.map((item) => {
           const fits = run.dwarves.filter((d) => d.isAlive && canEquip(item, d, state.meta.maxSlots));
+          const roleLabel = item.role !== 'any' ? `Даёт роль: ${ROLE_NAME[item.role]}` : '';
           return (
             <ItemCard
               key={item.id}
@@ -405,12 +404,14 @@ export function InventoryScreen() {
                     <option value="">Надеть на…</option>
                     {fits.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.name} ({ROLE_NAME[d.role]})
+                        {d.name}{roleLabel ? ` → ${ROLE_NAME[item.role]}` : ''}
                       </option>
                     ))}
                   </select>
                 ) : (
-                  <span className="text-[10px] italic text-stone-500">{whyNotEquip(item, run.dwarves, state.meta.maxSlots)}</span>
+                  <span className="text-[10px] italic text-stone-500">
+                    {roleLabel ? roleLabel + '. ' : ''}{whyNotEquip(item, run.dwarves, state.meta.maxSlots)}
+                  </span>
                 )
               }
             />
