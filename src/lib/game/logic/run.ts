@@ -26,14 +26,14 @@ export function getDepth(
 }
 
 // §3.3.1 v6.8 доли узлов: бой 0.50, элита 0.15+floor×0.01, лавка max(0, 0.15−floor×0.005),
-// событие 0.12, привал 0.05, кузня 0.03
+// событие 0.10, привал 0.15, кузня 0.03
 export function getNodeProbs(floor: number): [NodeType, number][] {
   return [
     ['battle', 0.5],
     ['elite', 0.15 + floor * 0.01],
     ['shop', Math.max(0, 0.15 - floor * 0.005)],
-    ['event', 0.12],
-    ['rest', 0.05],
+    ['event', 0.10],
+    ['rest', 0.15],
     ['forge', 0.03],
   ];
 }
@@ -125,7 +125,14 @@ function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKill
   switch (type) {
     case 'battle': {
       // §3.3.7: бой — 1 из 3, common/rare по rollRarity(difficulty)
+      // floor 3: ГАРАНТИРОВАННО 1 support-предмет (e_bone_charm / e_healing_charm / e_priest_hood)
       const itemIds = [0, 1, 2].map(() => randomKey(rng, unlocked, rollRarity(rng, floor)));
+      if (floor === 3) {
+        const supportKeys = ITEM_TABLE.filter((d) => d.role === 'support' && unlocked.includes(d.key));
+        if (supportKeys.length) {
+          itemIds[0] = pick(rng, supportKeys).key;
+        }
+      }
       return {
         ...base,
         type,

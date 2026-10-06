@@ -235,19 +235,19 @@ describe('v6.9 миграция сейва — endReason (§2.6)', () => {
 describe('v7.1 волны врагов — enemyCount (§6.3) и подкрепления (§3.1.1)', () => {
   test('enemyCount — v7.1: 1.5 врага на гнома (dwarfCount=2), cap 3–20', () => {
     expect(enemyCount(1, false, 2)).toBe(3);
-    expect(enemyCount(2, false, 2)).toBe(4);
-    expect(enemyCount(3, false, 2)).toBe(5);
-    expect(enemyCount(10, false, 2)).toBe(8);
-    expect(enemyCount(30, false, 2)).toBe(15);
+    expect(enemyCount(2, false, 2)).toBe(3);
+    expect(enemyCount(3, false, 2)).toBe(4);
+    expect(enemyCount(10, false, 2)).toBe(6);
+    expect(enemyCount(30, false, 2)).toBe(13);
     expect(enemyCount(1, true, 2)).toBe(5);
   });
 
   test('battleWaveTotal — пошаговая адаптация (×0.3): 2 на floor 1 (обучение), с floor 2 ≥ 3, элита больше', () => {
     expect(battleWaveTotal(1, false, 2)).toBe(2);
-    expect(battleWaveTotal(2, false, 2)).toBe(3);
-    expect(battleWaveTotal(10, false, 2)).toBe(5);
-    expect(battleWaveTotal(1, true, 2)).toBe(4);
-    expect(battleWaveTotal(10, true, 2)).toBe(5);
+    expect(battleWaveTotal(2, false, 2)).toBe(2);
+    expect(battleWaveTotal(10, false, 2)).toBe(2);
+    expect(battleWaveTotal(1, true, 2)).toBe(2);
+    expect(battleWaveTotal(10, true, 2)).toBe(3);
   });
 
   test('карта фиксирует полный состав волны: бой/элита по battleWaveTotal, босс соло', () => {

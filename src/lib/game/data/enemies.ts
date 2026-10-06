@@ -44,11 +44,11 @@ export const ENEMY_TABLE: Record<EnemyKind, EnemyDef> = {
   e_ancient: { id: 'e_ancient', name: 'Древний', baseHP: 9999, baseATK: 999, baseDEF: 999, speed: 10, position: 'front', attackType: 'melee', attackRange: 80, effects: [], isBoss: true },
 };
 
-// §6.3.1: scaleHP = 1 + floor × 0.08; scaleATK = 1 + floor × 0.04
+// §6.3.1: scaleHP = 1 + floor × 0.05; scaleATK = 1 + floor × 0.04
 export function spawnEnemy(id: EnemyKind, floor: number, index: number): Enemy {
   const template = ENEMY_TABLE[id];
   if (!template) throw new Error(`Unknown enemy: ${id}`);
-  const scaleHP = 1 + floor * 0.08;
+  const scaleHP = 1 + floor * 0.05;
   const scaleATK = 1 + floor * 0.04;
   return {
     id: template.id,
@@ -99,7 +99,7 @@ export function enemyPreview(id: EnemyKind, floor: number): { name: string; hp: 
   const template = ENEMY_TABLE[id];
   return {
     name: template.name,
-    hp: Math.round(template.baseHP * (1 + floor * 0.08)),
+    hp: Math.round(template.baseHP * (1 + floor * 0.05)),
     atk: Math.round(template.baseATK * (1 + floor * 0.04)),
     def: template.baseDEF,
     speed: template.speed,

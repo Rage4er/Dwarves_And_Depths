@@ -1,29 +1,31 @@
-// §7.5 Balance test — реальные стартовые условия
+// §7.5 Balance test — детальный лог 10 сидов
 // 2 гнома (maxPartySize=2), 1 common на гнома (newRun даёт 1 предмет каждому)
 // БЕЗ компенсации v7.1 (HP×5, cooldown×1.5)
+// simulateRun() по умолчанию использует 2 гнома, 1 common на гнома
 
 import { describe, expect, test } from 'bun:test';
-import { simulateRun } from './simulateRun';
-import { runSummary } from './simulateRun';
+import { simulateRun, runSummary } from './simulateRun';
 
 describe('balance test — реальные условия (2 гнома, 1 common на гнома)', () => {
   test('seeds 1..10: win rate 40–60%', () => {
     let wins = 0;
-    const results: { status: string; floor: number; gold: number }[] = [];
+    const results: { seed: number; status: string; floor: number; gold: number }[] = [];
 
     for (let seed = 1; seed <= 10; seed++) {
-      const run = simulateRun(seed, { realConditions: true });
+      const run = simulateRun(seed);
       const summary = runSummary(run);
-      results.push(summary);
+      results.push({ seed, ...summary });
       if (summary.status === 'victory') wins++;
     }
 
     const winRate = wins / 10;
     console.log('=== Balance Test (реальные условия) ===');
     console.log(`Wins: ${wins}/10 (${(winRate * 100).toFixed(0)}%)`);
-    for (let i = 0; i < results.length; i++) {
-      const r = results[i];
-      console.log(`  seed ${i + 1}: ${r.status} (floor ${r.floor}, gold ${r.gold})`);
+    console.log('');
+    console.log('| Seed | Status  | Floor | Gold |');
+    console.log('|------|---------|-------|------|');
+    for (const r of results) {
+      console.log(`| ${r.seed} | ${r.status.padEnd(7)} | ${r.floor} | ${r.gold} |`);
     }
     console.log('====================================');
 

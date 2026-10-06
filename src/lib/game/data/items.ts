@@ -39,7 +39,7 @@ export const ITEM_TABLE: ItemDef[] = [
   { key: 'e_cloth_cap', name: 'Тканый колпак', slot: 'head', role: 'any', rarity: 'common', stage: 1, tags: ['cloth'], atk: 0, def: 4, hp: 10, effects: [] },
   // trinket (3)
   { key: 'e_lucky_ring', name: 'Кольцо удачи', slot: 'ring', role: 'any', rarity: 'common', stage: 1, tags: ['metal'], atk: 2, def: 2, hp: 0, effects: [] },
-  { key: 'e_bone_charm', name: 'Костяной оберег', slot: 'trinket', role: 'any', rarity: 'common', stage: 1, tags: ['bone'], atk: 3, def: 3, hp: 3, effects: [] },
+  { key: 'e_bone_charm', name: 'Костяной оберег', slot: 'trinket', role: 'support', rarity: 'common', stage: 1, tags: ['bone'], atk: 3, def: 3, hp: 3, effects: [{ type: 'hp_regen', value: 1 }] },
   { key: 'e_stone_amulet', name: 'Каменный амулет', slot: 'trinket', role: 'any', rarity: 'common', stage: 1, tags: ['metal'], atk: 0, def: 4, hp: 5, effects: [] },
   // rune (2)
   { key: 'e_frost_rune', name: 'Руна льда', slot: 'rune', role: 'any', rarity: 'common', stage: 1, tags: ['runic'], atk: 2, def: 2, hp: 0, effects: [] },

@@ -388,13 +388,24 @@ export function reducer(state: GameState, action: Action): GameState {
         return { ...d, isAlive: false, currentHP: 0, statusEffects: [], equipment: [] };
       });
 
+      // §3.3.4: регенерация между боями — 30% missing HP
+      const regenPct = 0.30;
+      const dwarvesWithRegen = dwarves.map((d) => {
+        if (!d.isAlive) return d;
+        const maxHp = dwarfStats(d).hp;
+        const missing = maxHp - d.currentHP;
+        if (missing <= 0) return d;
+        const healed = Math.ceil(missing * regenPct);
+        return { ...d, currentHP: Math.min(maxHp, d.currentHP + healed) };
+      });
+
       // v6.9 §4.3: причина финала последнего боя → run.endReason (экран 9);
       // таймаут-сюжеты уже несут endReason в BattleState, обычные исходы — тут
       const runEndReason: BattleEndReason = won ? 'victory' : (action.state.endReason ?? 'defeat');
       let updated: RunState = {
         ...run,
         endReason: runEndReason,
-        dwarves,
+        dwarves: dwarvesWithRegen,
         inventory: [...run.inventory, ...fallenEquipment],
         map: run.map.map((n) => (n.id === node.id ? { ...n, visited: true } : n)),
       };
@@ -619,13 +630,13 @@ export function reducer(state: GameState, action: Action): GameState {
     }
 
     case 'REST_CHOICE': {
-      // §3.3.4: A — heal 50% maxHP живым; B — снять все statusEffects
+      // §3.3.4: A — heal 75% maxHP живым; B — снять все statusEffects
       const run = state.run;
       if (!run) return state;
       const dwarves = action.index === 0
         ? run.dwarves.map((d) =>
             d.isAlive
-              ? { ...d, currentHP: Math.min(dwarfStats(d).hp, d.currentHP + Math.ceil(dwarfStats(d).hp * 0.5)) }
+              ? { ...d, currentHP: Math.min(dwarfStats(d).hp, d.currentHP + Math.ceil(dwarfStats(d).hp * 0.75)) }
               : d,
           )
         : run.dwarves.map((d) => ({ ...d, statusEffects: [] }));
