@@ -16,8 +16,8 @@ export interface SmithyUpgradeDef {
 }
 
 export const SMITHY_UPGRADES: SmithyUpgradeDef[] = [
-  { id: 'maxSlots', metaField: 'maxSlots', name: 'Слоты экипировки', effectPerLevel: '+1 слот на гнома', baseCost: 50, maxLevel: 2, iconId: 'icon_slot' },
-  { id: 'maxPartySize', metaField: 'maxPartySize', name: 'Размер отряда', effectPerLevel: '+1 гном в стартовом отряде', baseCost: 80, maxLevel: 8, iconId: 'icon_party' },
+  { id: 'maxSlots', metaField: 'maxSlots', name: 'Слоты экипировки', effectPerLevel: '+1 гибкий слот на гнома', baseCost: 50, maxLevel: 2, iconId: 'icon_slot' },
+  { id: 'maxPartySize', metaField: 'maxPartySize', name: 'Размер отряда', effectPerLevel: '+1 гном в стартовом отряде', baseCost: 80, maxLevel: 1, iconId: 'icon_party' },
   { id: 'smithyLevel', metaField: 'smithyLevel', name: 'Уровень кузницы', effectPerLevel: '+0.5× к offline-доходу', baseCost: 30, maxLevel: Infinity, iconId: 'icon_smithy' },
   { id: 'offlineBonusPerHour', metaField: 'offlineBonusPerHour', name: 'Ускорение простоя', effectPerLevel: '+0.1× к offline-доходу', baseCost: 60, maxLevel: 5, iconId: 'icon_clock' },
 ];

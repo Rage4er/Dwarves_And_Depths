@@ -60,7 +60,7 @@ const SHOP_PARTY_CAP = 10; // §3.3.2: наём, пока партия < 10
 // §2.3: стартовые значения меты — Бром и Грим открыты (unlockFloor 1)
 export const DEFAULT_META: MetaState = {
   legacy: 0,
-  maxSlots: 2,
+  maxSlots: 4,
   maxPartySize: 2,
   smithyLevel: 0,
   offlineBonusPerHour: 0,

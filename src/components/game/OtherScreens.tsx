@@ -239,8 +239,8 @@ export function RewardScreen() {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col items-center justify-center px-4 py-10">
-      <h2 className="font-runic text-2xl font-black text-amber-300">Добыча побеждённых</h2>
-      <p className="mt-1 text-xs text-stone-400">Возьмите одну вещь — остальное достаётся Глубинам</p>
+      <h2 className="font-runic text-2xl font-black text-amber-300">Выбери 1 из 3</h2>
+      <p className="mt-1 text-xs text-stone-400">Добыча побеждённых — возьми одну вещь</p>
       <div className="mt-6 grid w-full grid-cols-1 gap-3 sm:grid-cols-3">
         {options.map((item, i) => (
           <button

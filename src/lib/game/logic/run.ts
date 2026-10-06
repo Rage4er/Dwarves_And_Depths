@@ -124,8 +124,8 @@ function makeNode({ rng, id, floor, nodeIndex, type, depth, unlocked, bossesKill
 
   switch (type) {
     case 'battle': {
-      // §3.3.7: бой — 1 из 2, common/rare по rollRarity(difficulty)
-      const itemIds = [0, 1].map(() => randomKey(rng, unlocked, rollRarity(rng, floor)));
+      // §3.3.7: бой — 1 из 3, common/rare по rollRarity(difficulty)
+      const itemIds = [0, 1, 2].map(() => randomKey(rng, unlocked, rollRarity(rng, floor)));
       return {
         ...base,
         type,

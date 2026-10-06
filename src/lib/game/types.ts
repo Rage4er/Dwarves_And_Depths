@@ -2,7 +2,8 @@
 
 export type Role = 'tank' | 'warrior' | 'ranged' | 'mage' | 'support' | 'any';
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
-export type Slot = 'weapon' | 'armor' | 'trinket' | 'rune';
+export type Slot = 'weapon' | 'armor' | 'head' | 'trinket' | 'rune' | 'ring';
+export type FlexibleSlot = 'trinket' | 'rune' | 'ring';
 export type Position = 'front' | 'mid' | 'back';
 export type RunStatus = 'active' | 'victory' | 'victory_endless' | 'defeat' | 'abandoned';
 export type Tag = 'metal' | 'cloth' | 'runic' | 'wood' | 'bone';
@@ -149,7 +150,10 @@ export interface Choice {
 export interface EquipSlots {
   weapon?: string;
   armor?: string;
+  head?: string;
   trinket?: string;
+  rune?: string;
+  ring?: string;
 }
 
 export interface MetaState {
@@ -181,7 +185,7 @@ export const ENEMY_HP_REGEN_CAP = 2;
 // §3.1 формация: множитель ПОЛУЧАЕМОГО урона по линии цели
 export const POSITION_DAMAGE: Record<Position, number> = { front: 1.5, mid: 1.0, back: 0.5 };
 
-export const SLOT_ORDER: Slot[] = ['weapon', 'armor', 'trinket', 'rune'];
+export const SLOT_ORDER: Slot[] = ['weapon', 'armor', 'head', 'trinket', 'rune', 'ring'];
 export const ROLE_ORDER: Exclude<Role, 'any'>[] = ['tank', 'warrior', 'ranged', 'mage', 'support'];
 
 export const RARITY_RANK: Record<Rarity, number> = { common: 0, rare: 1, epic: 2, legendary: 3 };
@@ -193,7 +197,7 @@ export const RARITY_NAME: Record<Rarity, string> = {
   common: 'Обычное', rare: 'Редкое', epic: 'Эпическое', legendary: 'Легендарное',
 };
 export const SLOT_NAME: Record<Slot, string> = {
-  weapon: 'Оружие', armor: 'Броня', trinket: 'Амулет', rune: 'Руна',
+  weapon: 'Оружие', armor: 'Броня', head: 'Шлем', trinket: 'Амулет', rune: 'Руна', ring: 'Кольцо',
 };
 export const ROLE_NAME: Record<Role, string> = {
   tank: 'Страж', warrior: 'Воин', ranged: 'Стрелок', mage: 'Маг',

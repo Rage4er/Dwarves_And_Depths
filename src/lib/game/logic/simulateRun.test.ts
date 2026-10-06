@@ -20,6 +20,7 @@ import { DWARF_TABLE } from '../data/dwarves';
 import { applyEventChoice } from './events';
 import { eventById } from '../data/events';
 import { mulberry32 } from '../rng';
+import type { Dwarf, Equipment, Position } from '../types';
 
 function testMeta(overrides: Partial<MetaState> = {}): MetaState {
   return {
@@ -212,5 +213,99 @@ describe('§6.5 награда наследия из события', () => {
     const run = newRun(7, testMeta(), ['d_brom']);
     expect(run.bonusLegacy).toBe(0);
     expect(legacyGain(run)).toBe(run.depth * 5);
+  });
+});
+
+// ── v7.2 Тесты ────────────────────────────────────────────────────────
+
+import { ITEM_TABLE } from '../data/items';
+import { SLOT_ORDER } from '../types';
+import { slotLimit, resolveRole } from './stats';
+
+describe('v7.2 — 66 предметов (§6.2)', () => {
+  test('ITEM_TABLE содержит ровно 66 предметов', () => {
+    expect(ITEM_TABLE.length).toBe(66);
+  });
+
+  test('распределение по слотам: weapon 20, armor 12, head 10, trinket 12, rune 8, ring 4', () => {
+    const counts: Record<string, number> = {};
+    for (const item of ITEM_TABLE) {
+      counts[item.slot] = (counts[item.slot] || 0) + 1;
+    }
+    expect(counts.weapon).toBe(20);
+    expect(counts.armor).toBe(12);
+    expect(counts.head).toBe(10);
+    expect(counts.trinket).toBe(12);
+    expect(counts.rune).toBe(8);
+    expect(counts.ring).toBe(4);
+  });
+
+  test('SLOT_ORDER содержит 6 типов', () => {
+    expect(SLOT_ORDER.length).toBe(6);
+    expect(SLOT_ORDER).toEqual(['weapon', 'armor', 'head', 'trinket', 'rune', 'ring']);
+  });
+
+  test('все предметы имеют корректный slot', () => {
+    const validSlots = new Set(SLOT_ORDER);
+    for (const item of ITEM_TABLE) {
+      expect(validSlots.has(item.slot)).toBe(true);
+    }
+  });
+});
+
+describe('v7.2 — 6 слотов (§3.1.6)', () => {
+  const makeDwarf = (equip: Equipment[]): Dwarf => ({
+    baseHP: 100, baseATK: 10, baseDEF: 5, baseSpeed: 10,
+    equipment: equip, isAlive: true, currentHP: 100, speed: 10,
+    role: 'any', name: 'test', id: 'd_test', position: 'mid' as Position,
+    statusEffects: [], localSlotBonus: 0,
+  });
+
+  test('base: 4 слота (maxSlots=0)', () => {
+    expect(slotLimit(makeDwarf([]), 0)).toBe(4);
+  });
+
+  test('smithy ур.1: 5 слотов', () => {
+    expect(slotLimit(makeDwarf([]), 1)).toBe(5);
+  });
+
+  test('smithy ур.2: 6 слотов', () => {
+    expect(slotLimit(makeDwarf([]), 2)).toBe(6);
+  });
+
+  test('extra_slot (mithril_beard): +1 слот (макс 7)', () => {
+    const extra: Equipment = {
+      id: 'e_mithril_beard#3#0', name: 'Борода из мифрила', slot: 'rune', role: 'any',
+      atk: 5, def: 5, hp: 5, effects: [{ type: 'extra_slot', value: 0 }],
+      rarity: 'legendary', tags: ['metal', 'runic'], stage: 3,
+    };
+    expect(slotLimit(makeDwarf([extra]), 2)).toBe(7);
+  });
+});
+
+describe('v7.2 — лут 1 из 3 (§3.3.7)', () => {
+  test('battle узел генерирует 3 варианта лута', () => {
+    // проверяем что makeNode для battle даёт 3 itemIds
+    const run = newRun(42, testMeta(), ['d_brom', 'd_grim']);
+    const battleNodes = run.map.filter((n) => n.type === 'battle');
+    for (const node of battleNodes) {
+      expect(node.rewards.itemIds.length).toBe(3);
+    }
+  });
+
+  test('elite узел генерирует 3 варианта лута', () => {
+    const run = newRun(5, testMeta(), ['d_brom', 'd_grim']);
+    const eliteNodes = run.map.filter((n) => n.type === 'elite');
+    for (const node of eliteNodes) {
+      expect(node.rewards.itemIds.length).toBe(3);
+    }
+  });
+
+  test('boss узел генерирует 3 варианта лута', () => {
+    const run = newRun(5, testMeta(), ['d_brom', 'd_grim']);
+    const bossNodes = run.map.filter((n) => n.type === 'boss');
+    for (const node of bossNodes) {
+      expect(node.rewards.itemIds.length).toBe(3);
+    }
   });
 });

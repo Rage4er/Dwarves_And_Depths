@@ -39,12 +39,13 @@ export function maxHP(dwarf: Dwarf): number {
   return dwarfStats(dwarf).hp;
 }
 
-// §3.1.6: limit = maxSlots + localSlotBonus(min(1, extra_slot items))
+// §3.1.6 v7.2: 4 базовых + smithy maxSlots (0→1→2) + localSlotBonus(extra_slot, макс 1)
+// Итого: Ур.0 = 4, Ур.1 = 5, Ур.2 = 6, + mithril_beard = 7
 export function slotLimit(dwarf: Dwarf, maxSlots: number): number {
   const extras = dwarf.equipment.filter((e) =>
     e.effects.some((eff) => eff.type === 'extra_slot'),
   ).length;
-  return maxSlots + Math.min(1, extras);
+  return 4 + maxSlots + Math.min(1, extras);
 }
 
 export function canEquip(item: Equipment, dwarf: Dwarf, maxSlots: number): boolean {

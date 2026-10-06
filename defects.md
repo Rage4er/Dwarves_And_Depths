@@ -41,3 +41,16 @@
 - Миграция старых сейвов: удаление `unlocks` и `autoEquipTemplate`
 
 Все изменения соответствуют PROMPT.md v7.1.
+
+## [2026-10-06] [MINOR] [v7.2] Обновление под v7.2
+
+Изменения:
+- Slot: +head, +ring (6 типов: weapon, armor, head, trinket, rune, ring)
+- FlexibleSlot = trinket | rune | ring
+- maxSlots: 4 базовых + 0→2 через Кузницу + extra_slot (макс 7)
+- Предметы: 24 → 66 (weapon 20, armor 12, head 10, trinket 12, rune 8, ring 4)
+- Лут после боя: 1 из 2 → 1 из 3
+- Экран 5: заголовок «Выбери 1 из 3»
+
+Известные отклонения:
+- Balance test: 1/10 wins (10%) — вне коридора 40-60%. Требует донастройки формул боя (§6.4).
