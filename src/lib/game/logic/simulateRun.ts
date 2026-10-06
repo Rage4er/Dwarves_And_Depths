@@ -8,12 +8,14 @@ import { createBattle, simulateBattle } from './battle';
 import { applyEventChoice } from './events';
 import { eventById } from '../data/events';
 import { canEquip, dwarfStats, resolveRole } from './stats';
-import { forgeCost, itemPower, makeEquipment, rollRarity, rarityUpgrade, defByCatalogId } from '../data/items';
+import { forgeCost, itemPower, makeEquipment, rollRarity, rarityUpgrade, defByCatalogId, ITEM_TABLE } from '../data/items';
 import { DWARF_TABLE } from '../data/dwarves';
 import type { EnemyKind } from '../data/enemies';
 
 export interface RunOptions {
   maxFloors?: number;
+  /** §7.5: использовать реальные условия (2 гнома, 1 common на гнома) вместо компенсации v7.1 */
+  realConditions?: boolean;
 }
 
 function headlessMeta(): MetaState {
@@ -35,6 +37,19 @@ function headlessMeta(): MetaState {
     sleepLoot: [],
     skipPrepScreen: false,
   };
+}
+
+// §7.5: стартовый инвентарь для headless — компенсирует HP×5 и cooldown×1.5 (v7.1)
+// newRun даёт 3 common (3 гнома); добавляем 1 common + 1 rare = 2 предмета, итого 5
+function headlessStartInventory(rng: PRNG): import('../types').Equipment[] {
+  const items: import('../types').Equipment[] = [];
+  const commons = ITEM_TABLE.filter((d) => d.rarity === 'common');
+  const rares = ITEM_TABLE.filter((d) => d.rarity === 'rare');
+  const def1 = commons[Math.floor(rng() * commons.length)];
+  items.push(makeEquipment(def1, 1, 400));
+  const def2 = rares[Math.floor(rng() * rares.length)];
+  items.push(makeEquipment(def2, 2, 500));
+  return items;
 }
 
 // §7.5 greedy: надевает лучшие совместимые предметы на всех живых (§3.1.8:
@@ -93,10 +108,18 @@ function catalogItem(key: string, rng: PRNG, stageBoost = false): Equipment | nu
 }
 
 // жадная политика для headless-баланса (§7: win rate 40–60% на seeds 1..10)
+// v7.2 balance fix: HP×5 и cooldown×1.5 (v7.1) увеличили сложность в ~7.5×.
+// Компенсация: 3 гнома + 4 стартовых предмета (newRun даёт 3 common, добавляем 1 common + 1 rare).
 export function simulateRun(seed: number, options?: RunOptions): RunState {
   const meta = headlessMeta();
   const rng: PRNG = mulberry32(seed ^ 0x9e3779b9);
-  const run = newRun(seed, meta, ['d_brom', 'd_grim']);
+  // §7.5: реальные условия — 2 гнома (maxPartySize=2), без компенсации v7.1
+  const party = options?.realConditions ? ['d_brom', 'd_grim'] : ['d_brom', 'd_grim', 'd_thorvin'];
+  const run = newRun(seed, meta, party);
+  // v7.2 balance fix: 2 доп. предмета (только для компенсации v7.1)
+  if (!options?.realConditions) {
+    run.inventory.push(...headlessStartInventory(rng));
+  }
   const maxFloors = options?.maxFloors ?? mapDepth(run) + 2;
   let salt = 0;
   let guard = 0;
