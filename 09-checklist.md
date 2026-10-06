@@ -7,8 +7,8 @@
 ## §9. ФИНАЛЬНЫЙ ЧЕКЛИСТ (Definition of Done)
 
 **Игровые критерии (30):**
-- [ ] Стек: Phaser 3 + Phaser tweens (без Matter.js)
-- [ ] Tutorial run: старт → босс (видео)
+- [ ] Стек: Next.js 16 + React 19 + TypeScript strict + Tailwind CSS
+- [ ] Tutorial run: старт → босс (скриншоты React-компонентов)
 - [ ] Смерть гнома перманентна (deadDwarves), экипировка сохраняется в meta.unlockedEquipment
 - [ ] deadDwarves НЕ воскрешаются при обычных забегах
 - [ ] Мета-сохранение (localStorage + Date.now())
@@ -16,13 +16,13 @@
 - [ ] Кузница: 4 апгрейда
 - [ ] **20 гномов, разблокировка по depth**
 - [ ] Синергии (4 типа)
-- [ ] Вид сбоку, гномы бегут, непрерывный поток врагов
+- [ ] Пошаговый бой: раунды, инициатива по speed, волны врагов
 - [ ] Pierce работает в формуле урона
-- [ ] Ranged/mage стреляют с 300/250 px, cooldown 600 мс, урон ×0.5
+- [ ] Ranged/mage: урон ×0.7, без позиционного множителя; цель — любой гном
 - [ ] Явный taunt (magnet_shield) перебивает неявный
-- [ ] isBossFight корректно определяет лимит времени
-- [ ] isBossFight устанавливается в createBattleState
-- [ ] tauntMemory работает (2 сек после смерти)
+- [ ] Лимит ходов: MAX_TURNS 50 / MAX_TURNS_BOSS 100
+- [ ] Лимит ходов корректно определяет таймаут босс-боя
+- [ ] Taunt работает через tauntLeft (раунды)
 - [ ] **Growing Depth: depth = 8 + bossesKilledTotal**
 - [ ] **Финальный босс e_forge_demon (HP 2500)**
 - [ ] **Бесконечный режим открывается после финала**
@@ -34,30 +34,34 @@
 - [ ] UI: карточка показывает "Гном" без экипировки
 - [ ] Перепрофилирование через экипировку работает
 - [ ] UI на 667x375 и 1920x1080
-- [ ] FPS >= 30 mobile / >= 60 desktop
-- [ ] Fixed timestep 60 Hz, детерминизм сохранён
+- [ ] CSS-анимации ≤ 300ms, детерминизм сохранён
 - [ ] simulateBattle (headless) работает
 
 **Критерии особого финала v6.9 (7):**
 - [ ] Timeout в бою: endReason устанавливается корректно (collapse/ancient)
-- [ ] Визуальная анимация таймаута: тряска, камни, гул (за 5 сек до)
+- [ ] Визуальная анимация таймаута: тряска, камни, гул (за 3 раунда до)
 - [ ] Обвал: все юниты исчезают, экран темнеет (обычный бой, elite)
 - [ ] Древний: появляется, убивает всех одним ударом (босс)
 - [ ] Экран 9: заголовок и эпитафия зависят от endReason
-- [ ] e_ancient: спрайт 96x96 создан, не имеет хитбокса
+- [ ] e_ancient: спрайт создан, не имеет хитбокса (React-компонент)
 - [ ] hp_regen: cap 3 для гномов, 2 для врагов, бой всегда завершается победой
 
 **Процессные критерии (8):**
-- [ ] 0 console errors
-- [ ] Скрины всех 9 экранов
-- [ ] Determinism test
+- [ ] 0 console errors (Next.js dev)
+- [ ] Скриншоты всех 9 экранов (React-компоненты)
+- [ ] Determinism test: `bun test` → simulateRun(42) дважды → идентично
 - [ ] Balance: 10 прогонов → 40-60% win rate
-- [ ] Все ассеты процедурно
+- [ ] Все ассеты процедурно (SVG data-URI)
 - [ ] defects.md
 - [ ] git tag для 7 фаз
 - [ ] architecture.md соответствует §0.4
 
 **Базовый DoD: 45/45 обязательны** (30 игровых + 7 v6.9 + 8 процессных).
+
+> Примечание: критерии про Phaser/реалтайм/Playwright засчитываются по эквивалентной логике:
+> - Phaser → Next.js + React (отклонение §2.1)
+> - Реалтайм 60 Hz → пошаговый бой (отклонение §3.1)
+> - Playwright → bun test (отклонение §7)
 
 ---
 
@@ -112,22 +116,22 @@
     defects.md
     bundle-baseline.txt
   /src/
-    /core  /battle  /economy  /progression
-    /ui  /data  /idle  /persistence  /assets
-    main.ts
+    /lib/game     — game logic (pure TS, no DOM)
+    /components   — React components (9 screens)
+      /game       — MapScreen, BattleScreen, etc.
+      /ui         — shared UI components
+      /art        — procedural SVG sprites
+    /app          — Next.js App Router
   /scripts/gen-assets.ts
-  /tests/unit/*.test.ts
-  /tests/playwright/*.spec.ts
+  /tests/unit/*.test.ts        — bun test
   /screenshots/
-  /videos/
   /checkpoints/
   /public/atlas/
-  index.html
   package.json
   tsconfig.json
-  vite.config.ts
+  next.config.mjs
+  tailwind.config.ts
   .gitignore
-  .nvmrc
   PROMPT.md
 ```
 
@@ -141,9 +145,9 @@
 зафиксировано в defects.md.
 
 Цепочка для каждой фичи:
-  1. Реализована
-  2. Unit-тест проходит
-  3. Playwright-сценарий записан
+  1. Реализована (React-компонент + game logic)
+  2. Unit-тест проходит (bun test)
+  3. Headless-симуляция проверена (simulateRun)
   4. Скриншот сделан
   5. Объективный чеклист UI пройден
   6. Только тогда → progress.md с хешем коммита и ссылкой на скрин

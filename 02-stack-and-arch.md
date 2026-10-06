@@ -8,17 +8,17 @@
 
 | Слой | Технология |
 |---|---|
-| Рендер | **Phaser 3** (WebGL + Canvas fallback) |
-| Анимации | **Phaser tweens** (отскоки, ragdoll, удары) |
-| Состояние | Собственный immutable store |
+| Фреймворк | **Next.js 16** (App Router, React 19) |
+| UI | **React 19** + TypeScript strict + Tailwind CSS |
+| Анимации | CSS transitions / keyframes (≤ 300ms) |
+| Состояние | Собственный immutable store (React hooks) |
 | Сохранение | localStorage (JSON) |
-| UI | Phaser DOM + HTML/CSS оверлеи |
 | Звук | WebAudio API (синтез) |
-| Тесты | Playwright + Lighthouse CI |
-| Бандл | Vite, < 5 MB gzip |
+| Тесты | **bun test** (headless-симуляция + unit-тесты) |
+| Бандл | Next.js build, < 5 MB gzip |
 | Язык | TypeScript strict mode |
 
-**Запрет:** React, Vue, Svelte, любые UI-фреймворки. Matter.js не используется. Все 9 экранов — Phaser Scenes + HTML/CSS оверлеи.
+**Примечание:** React — осознанное решение заказчика (отклонение от Phaser 3). Все 9 экранов — React-компоненты. Phaser не используется.
 
 ---
 
@@ -26,25 +26,16 @@
 
 ```
 /src
-  /core         — state, seed, game loop, types
-  /battle       — simulateBattleTick, simulateBattle, simulateRun,
-                  createBattleState, role resolution, synergies
-  /economy      — золото, Наследие, торговец, forge, rest, кузница
-  /progression  — RunNode graph, unlock tree, map generator,
-                  endless mode
-  /ui           — 9 экранов (Phaser Scenes + overlays)
-  /data         — JSON schemas + seed tables + events + synergies +
-                  enemies + smithy.ts + dwarves.ts (20 гномов)
-  /idle         — offline income, auto-loop, autoEquip
-  /persistence  — save/load, migration
-  /assets       — процедурные спрайты, loader
-/scripts        — gen-assets.ts (Node + Canvas)
+  /lib/game     — game logic (state, seed, types, battle, economy,
+                  progression, data, persistence, art)
+  /components   — 9 экранов (React-компоненты)
+    /game       — игровые экраны (MapScreen, BattleScreen, etc.)
+    /ui         — переиспользуемые UI-компоненты
+    /art        — процедурные SVG-спрайты (data-URI)
+  /app          — Next.js App Router layout/pages
+/scripts        — генерация ассетов (Node + Canvas)
 /tests
-  /unit         — vitest
-  /playwright   — e2e
-/screenshots
-/videos
-/checkpoints
+  /unit         — bun test (headless-симуляция + инварианты)
 /memory-bank
 /public
   /atlas
@@ -303,42 +294,35 @@ runtime-only.
 
 ---
 
-## §2.8. index.html и точка входа
+## §2.8. App Router layout и точка входа
 
-```html
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Гномы и Глубины</title>
-</head>
-<body>
-  <div id="game"></div>
-  <div id="ui-overlay"></div>
-  <script type="module" src="/src/main.ts"></script>
-</body>
-</html>
+```
+/app
+  layout.tsx        — корневой layout (meta viewport, theme, fonts)
+  page.tsx          — точка входа (экран Кузницы / Старт)
+  /game             — игровые экраны как route-группы
 ```
 
 ```typescript
-// src/main.ts
-import Phaser from 'phaser';
-import { BootScene } from './ui/scenes/BootScene';
+// app/layout.tsx
+import type { Metadata } from 'next';
+import { GeistSans } from 'geist/font/sans';
 
-new Phaser.Game({
-  type: Phaser.AUTO,
-  parent: 'game',
-  width: 1920,
-  height: 1080,
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  scene: [BootScene],
-});
+export const metadata: Metadata = {
+  title: 'Гномы и Глубины',
+  viewport: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ru" className={GeistSans.variable}>
+      <body>{children}</body>
+    </html>
+  );
+}
 ```
+
+**Примечание:** Вместо Phaser.Game — Next.js App Router. Каждый экран — React-компонент, рендеримый через роутинг или условный рендеринг в одном page.tsx.
 
 ---
 
@@ -350,32 +334,41 @@ new Phaser.Game({
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
-    "gen:assets": "tsx scripts/gen-assets.ts",
-    "prebuild": "npm run gen:assets",
-    "test:unit": "vitest run",
-    "test:e2e": "playwright test",
-    "lint": "tsc --noEmit"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "test": "bun test",
+    "gen:assets": "tsx scripts/gen-assets.ts"
   },
   "dependencies": {
-    "phaser": "^3.80.0"
+    "next": "16.2.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "clsx": "^2.1.1",
+    "geist": "^1.4.2",
+    "next-themes": "^0.4.6",
+    "tailwind-merge": "^3.3.1"
   },
   "devDependencies": {
-    "typescript": "^5.4.0",
-    "vite": "^5.2.0",
-    "vitest": "^1.5.0",
-    "@playwright/test": "^1.43.0",
-    "tsx": "^4.7.0",
-    "@napi-rs/canvas": "^0.1.50",
-    "get-video-duration": "^4.1.0"
+    "typescript": "^5.8.3",
+    "@types/node": "^20.19.8",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "eslint": "^9.31.0",
+    "eslint-config-next": "16.2.1",
+    "tailwindcss": "^3.4.18",
+    "autoprefixer": "^10.4.21",
+    "prettier": "latest",
+    "prettier-plugin-tailwindcss": "latest"
   },
   "engines": {
     "node": ">=20.0.0"
   }
 }
 ```
+
+**Примечание:** `bun test` вместо `vitest`/`playwright`. Next.js берёт на себя bundling, SSR, routing.
 
 ---
 

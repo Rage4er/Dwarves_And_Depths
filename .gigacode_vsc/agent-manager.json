@@ -1,9 +1,21 @@
 {
-  "worktrees": {},
+  "worktrees": {
+    "wt-1791260851063-1": {
+      "branch": "healthy-bloom",
+      "path": "c:\\Github\\Dwarves_And_Depths\\.gigacode_vsc\\worktrees\\healthy-bloom",
+      "parentBranch": "main",
+      "createdAt": "2026-10-06T04:27:31.063Z",
+      "remote": "origin",
+      "label": "healthy-bloom"
+    }
+  },
   "sessions": {},
   "tabOrder": {
     "local": [
       "pending:1"
     ]
-  }
+  },
+  "worktreeOrder": [
+    "wt-1791260851063-1"
+  ]
 }

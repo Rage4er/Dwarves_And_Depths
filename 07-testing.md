@@ -4,25 +4,26 @@
 
 ---
 
-## §7.1. Headless-тесты
+## §7.1. Headless-тесты (bun test)
 
 ```
-§7.1 НЕ применяется до завершения Фазы 2.
+bun test — headless-симуляция через simulateRun(seed):
 
-tutorial-run.spec.ts (seed=42):
-1. Кузница (скрин)
-2. Выбор отряда → Бром + Грим (скрин)
-3. Экипировка → drag&drop (скрин)
-4. Бой 1 → непрерывный поток врагов (скрин + FPS)
-5. После победы: экран Награды → Карта забега → возврат в Кузницу
-6. Закрытие → reopen через Date.now() + 3600000 → offline проверен
-7. 0 console errors
-8. FPS ≥ 30 на viewport 667×375
+simulateRun.test.ts (seed=42):
+1. Детерминизм: simulateRun(42) дважды → JSON diff пустой
+2. Инварианты забега: status ≠ 'active', depth = 8 + bossesKilledTotal
+3. Элита не встречается два этажа подряд
+4. Старт забега: party + 1 предмет каждому, босс в последнем слое
+5. NormalizeMeta / NormalizeRun: миграция старых сейвов
+6. Награды наследия из событий
+7. 66 предметов (§6.2): распределение по слотам
+8. 6 слотов (§3.1.6): slotLimit формула
+9. Лут 1 из 3 (§3.3.7): itemIds.length === 3 для battle/elite/boss
 
-Дополнительно (v6.7):
-9. Финальный босс доступен после 5+ побед
-10. Бесконечный режим открывается
-11. Воскрешение в бесконечном режиме
+battle.v69.test.ts (v6.9 эпичный финал):
+10. Timeout: endReason корректен (collapse / ancient)
+11. hp_regen: cap 3 для гномов, 2 для врагов
+12. Бой всегда завершается победой при достаточном regen
 ```
 
 ---
@@ -30,10 +31,21 @@ tutorial-run.spec.ts (seed=42):
 ## §7.2. Determinism test
 
 ```typescript
-test('determinism', async () => {
-  const run1 = simulateRun(42);
-  const run2 = simulateRun(42);
-  expect(run1).toEqual(run2);
+import { describe, expect, test } from 'bun:test';
+import { simulateRun } from './simulateRun';
+
+describe('determinism', () => {
+  test('один и тот же сид → идентичный результат', () => {
+    const a = simulateRun(42);
+    const b = simulateRun(42);
+    expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+  });
+
+  test('разные сиды → разные карты глубин', () => {
+    const a = simulateRun(1, { maxFloors: 3 });
+    const b = simulateRun(2, { maxFloors: 3 });
+    expect(JSON.stringify(a.map)).not.toBe(JSON.stringify(b.map));
+  });
 });
 ```
 
@@ -41,27 +53,15 @@ test('determinism', async () => {
 
 ## §7.3. Agent-критик
 
-Скрины → автопроверка (contrast, touch targets, overflow, grid) → 
+React-компоненты → SSR-рендер → HTML-сверка (contrast, touch targets, overflow, grid) → 
 чеклист §4.1 → accepted → progress.md.
 
 ---
 
 ## §7.4. Video acceptance
 
-```typescript
-import { getVideoDurationInSeconds } from 'get-video-duration';
-import fs from 'node:fs';
-
-const videoPath = await page.video()?.path();
-if (!videoPath) throw new Error('No video');
-
-const duration = await getVideoDurationInSeconds(videoPath);
-expect(duration).toBeGreaterThanOrEqual(180);
-expect(duration).toBeLessThanOrEqual(360);
-
-const size = fs.statSync(videoPath).size;
-expect(size).toBeGreaterThan(1_000_000);
-```
+> Не применяется (Next.js, нет видеозаписи рендеринга).
+> Визуальная проверка — скриншоты React-компонентов.
 
 ---
 
