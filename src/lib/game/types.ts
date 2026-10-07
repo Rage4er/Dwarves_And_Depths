@@ -175,9 +175,6 @@ export interface MetaState {
   skipPrepScreen: boolean; // v7.1: пропуск экрана подготовки
 }
 
-export const MAX_TURNS = 50;
-export const MAX_TURNS_BOSS = 100;
-
 // v6.9 §6.4: капы суммарного hp_regen за ход — стек предметов не пробивает лимит
 export const HP_REGEN_CAP = 3;
 export const ENEMY_HP_REGEN_CAP = 2;
@@ -251,6 +248,10 @@ export interface Combatant {
   attackType?: AttackType; // v7.0: только у врагов; гномы всегда melee
   isBoss?: boolean;
   isElite?: boolean;
+  // Реалтайм §3.1: позиция на арене
+  x: number;
+  y: number;
+  attackCooldown: number; // мс до следующей атаки
 }
 
 export type BattleEventKind =
@@ -270,17 +271,24 @@ export type BattleOutcome = 'active' | 'won' | 'lost' | 'timeout';
 export interface BattleState {
   allies: Combatant[];
   foes: Combatant[];
-  round: number;
   log: BattleEvent[];
   status: BattleOutcome;
   seed: number;
   floor: number; // §6.4: minDamage = max(1, floor/2) зависит от слоя узла
   endReason: BattleEndReason | null; // v6.9 §2.3: почему бой закончился
-  // §3.1.1 пошаговая адаптация потока: enemiesTotal = enemyIds узла (§6.3 enemyCount),
-  // подкрепления входят по одному врагу в раунд, пока не исчерпан резерв
+  // Реалтайм §3.1: таймеры
+  timeElapsed: number; // мс
+  spawnTimer: number; // мс до следующего спавна
+  poisonBurnTimer: number; // мс до следующего DOT-тика
+  regenTimer: number; // мс до следующего hp_regen-тика
+  tauntMemory: { x: number; remainingMs: number } | null;
+  summonTimer: number; // мс до следующего summon (босс)
+  // §3.1.1: волны врагов
   enemiesTotal: number;
   enemiesSpawned: number;
   enemyReserve: string[];
+  // Для headless: счётчик тиков
+  tick: number;
 }
 
 export interface BattleResult {

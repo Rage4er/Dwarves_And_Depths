@@ -5,7 +5,7 @@ import type {
   BattleEvent, BattleResult, BattleState, Combatant, Dwarf, Effect, Enemy,
   Position, StatusEffect,
 } from '../types';
-import { HP_REGEN_CAP, ENEMY_HP_REGEN_CAP, MAX_TURNS, MAX_TURNS_BOSS, POSITION_DAMAGE } from '../types';
+import { HP_REGEN_CAP, ENEMY_HP_REGEN_CAP, POSITION_DAMAGE } from '../types';
 import { mulberry32, pick, randInt, type PRNG } from '../rng';
 import { spawnGroup, spawnEnemy, ENEMY_TABLE, type EnemyKind } from '../data/enemies';
 import { dwarfStats, equipEffects } from './stats';
@@ -28,6 +28,10 @@ const WAVE_ALIVE_CAP = 3;
 // v7.0 §6.4: ranged-враги (лучник, шаман) бьют ×0.7 (реалтайм-штраф дальнего боя),
 // но игнорируют позиционный множитель линии цели — «снайпят» по любому гному
 const RANGED_ATTACK_MULT = 0.7;
+
+// §3.1 Реалтайм: фиксированный шаг симуляции
+export const FIXED_TIMESTEP_MS = 1000 / 60; // 16.667 мс, 60 тиков/сек
+const MAX_TICKS_PER_FRAME = 4;
 
 function clone<T>(v: T): T {
   return structuredClone(v);
@@ -84,6 +88,9 @@ function toCombatant(
     role: dwarf.role,
     iconSeed: index + 1,
     tauntLeft: 0,
+    x: 0,
+    y: 0,
+    attackCooldown: 0,
   };
 }
 
@@ -107,6 +114,9 @@ function toFoeCombatant(enemy: Enemy, index: number): Combatant {
     attackType: enemy.attackType,
     isBoss: enemy.isBoss,
     isElite: enemy.isElite,
+    x: 0,
+    y: 0,
+    attackCooldown: 0,
   };
 }
 
@@ -141,7 +151,12 @@ export function createBattle(
   const foes = groupIds.slice(0, front).map((id, i) => toFoeCombatant(spawnEnemy(id, floor, i), i));
   return {
     seed,
-    round: 0,
+    timeElapsed: 0,
+    spawnTimer: 0,
+    poisonBurnTimer: 0,
+    regenTimer: 0,
+    tauntMemory: null,
+    summonTimer: 0,
     allies,
     foes,
     status: 'active',
@@ -151,6 +166,7 @@ export function createBattle(
     enemiesTotal: groupIds.length,
     enemiesSpawned: front,
     enemyReserve: groupIds.slice(front),
+    tick: 0,
   };
 }
 
@@ -296,11 +312,15 @@ function finishActorTurn(actor: Combatant, log: BattleEvent[]): void {
   }
 }
 
-export function simulateTurn(state: BattleState): BattleState {
+export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): BattleState {
   const s = clone(state);
   if (s.status !== 'active') return s;
-  s.round += 1;
-  const rng = mulberry32(s.seed + s.round * 7919);
+  s.timeElapsed += dt;
+  s.spawnTimer -= dt;
+  s.poisonBurnTimer -= dt;
+  s.regenTimer -= dt;
+  s.summonTimer -= dt;
+  const rng = prng; // используем переданный PRNG для детерминизма
   const log: BattleEvent[] = [];
 
   // §3.1.1: подкрепления входят в начале раунда (пошаговый аналог спавна раз в 500 мс),
@@ -383,16 +403,17 @@ export function simulateTurn(state: BattleState): BattleState {
     if (c.alive && c.tauntLeft > 0) c.tauntLeft -= 1;
   }
 
-  // лимит ходов: если за отведённые раунды ни одна сторона не решила бой —
+  // лимит времени: если за отведённое время ни одна сторона не решила бой —
   // поражение, иначе «танк против брони» может длиться бесконечно.
   // v6.9 §3.1.1: таймаут — сюжетный финал (обвал / Древний), не «просто поражение»
-  const turnLimit = s.foes.some((c) => c.isBoss) ? MAX_TURNS_BOSS : MAX_TURNS;
+  const battleTimeLimit = s.foes.some((c) => c.isBoss) ? 60000 : 30000;
+  const warnTime = battleTimeLimit - 5000;
   if (s.foes.every((c) => !c.alive) && !s.enemyReserve.length) s.status = 'won';
   else if (s.allies.every((c) => !c.alive)) s.status = 'lost';
-  else if (s.round === turnLimit - 3) {
-    // предупреждение перед финалом (аналог «последних 5 секунд» §3.1.1, пошагово — 3 раунда)
+  else if (s.timeElapsed >= warnTime && s.timeElapsed < warnTime + FIXED_TIMESTEP_MS) {
+    // предупреждение перед финалом (последние 5 секунд)
     log.push({ kind: 'turn', text: 'Глубины пробуждаются…' });
-  } else if (s.round >= turnLimit) {
+  } else if (s.timeElapsed >= battleTimeLimit) {
     s.status = 'timeout';
     const ancient = s.foes.some((c) => c.isBoss);
     s.endReason = ancient ? 'timeout_ancient' : 'timeout_collapse';
@@ -433,9 +454,11 @@ export function simulateTurn(state: BattleState): BattleState {
 
 export function simulateBattle(battle: BattleState): BattleResult {
   let state = initTauntState(clone(battle));
+  const prng = mulberry32(battle.seed);
+  const battleTimeLimit = state.foes.some((c) => c.isBoss) ? 60000 : 30000;
   let guard = 0;
-  while (state.status === 'active' && guard < MAX_TURNS_BOSS + 10) {
-    const next = simulateTurn(state);
+  while (state.status === 'active' && state.timeElapsed < battleTimeLimit && guard < 3600) {
+    const next = simulateBattleTick(state, FIXED_TIMESTEP_MS, prng);
     next.log = [...state.log, ...next.log];
     state = next;
     guard += 1;
@@ -451,7 +474,7 @@ export function simulateBattle(battle: BattleState): BattleResult {
   }
   return {
     state,
-    round: state.round,
+    round: Math.floor(state.timeElapsed / FIXED_TIMESTEP_MS),
     status: state.status === 'won' ? 'won' : 'lost',
     deadAllies: state.allies.filter((c) => !c.alive).map((c) => c.uid),
     endReason: state.endReason,

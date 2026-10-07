@@ -9,8 +9,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useGame } from '@/lib/game/store';
-import { simulateTurn, initTauntState } from '@/lib/game/logic/battle';
-import { MAX_TURNS, MAX_TURNS_BOSS } from '@/lib/game/types';
+import { simulateBattleTick, initTauntState, FIXED_TIMESTEP_MS } from '@/lib/game/logic/battle';
+import { mulberry32 } from '@/lib/game/rng';
 import type { BattleState, Combatant, Position, Role } from '@/lib/game/types';
 import { HpBar } from './bits';
 import { DwarfSprite, FoeSprite } from './sprites';
@@ -143,6 +143,7 @@ export function BattleScreen() {
   const [logLines, setLogLines] = useState<string[]>([]);
   const [speedIdx, setSpeedIdx] = useState(1);
   const popupId = useRef(0);
+  const prngRef = useRef<(() => number) | null>(null);
   // последняя слотовая позиция врага — павший остаётся на месте падения
   const foeSlotRef = useRef(new Map<string, Slot>());
   // v6.9: раунд гибели каждого юнита — финальные анимации только для погибших в финальном раунде
@@ -152,10 +153,10 @@ export function BattleScreen() {
   const [stones, setStones] = useState<Stone[]>([]);
 
   const isBoss = cur.foes.some((f) => f.isBoss);
-  const turnLimit = isBoss ? MAX_TURNS_BOSS : MAX_TURNS;
+  const turnLimit = isBoss ? 60000 : 30000; // мс, боевое время
   const finished = cur.status !== 'active';
-  // §3.1.1: зона предупреждения (последние WARN_ROUNDS раундов) и эпичный финал
-  const warning = cur.status === 'active' && cur.round >= turnLimit - WARN_ROUNDS;
+  // §3.1.1: зона предупреждения (последние 5 секунд) и эпичный финал
+  const warning = cur.status === 'active' && cur.timeElapsed >= turnLimit - 5000;
   const isCollapse = cur.endReason === 'timeout_collapse';
   const isAncient = cur.endReason === 'timeout_ancient';
   const rumbling = warning || (finished && (isCollapse || isAncient));
@@ -170,40 +171,61 @@ export function BattleScreen() {
     setViews(Object.fromEntries([...battle.allies, ...battle.foes].map((c) => [c.uid, { flash: null, lunge: false, spark: null }])));
     setLogLines([]);
     setPopups([]);
+    prngRef.current = mulberry32(battle.seed);
   }, [battle]);
 
-  // ход каждые SPEEDS[speedIdx].ms
+  // реалтайм-цикл: requestAnimationFrame + FIXED_TIMESTEP_MS accumulator
   useEffect(() => {
     if (cur.status !== 'active') return;
-    const t = setTimeout(() => {
-      const next = simulateTurn(cur);
-      const d = diffTurns(cur, next);
-      playSfx(d.sfx);
-      for (const u of [...cur.allies, ...cur.foes]) {
-        const n = next.allies.find((x) => x.uid === u.uid) ?? next.foes.find((x) => x.uid === u.uid);
-        if (n && u.alive && !n.alive) deathTurnRef.current.set(u.uid, next.round);
-      }
-      setViews((prev) => {
-        const out: Record<string, UnitView> = {};
-        for (const uid of Object.keys(prev)) out[uid] = clearAnimations(prev[uid]);
-        for (const uid of d.lunges) {
-          out[uid] = { ...(out[uid] ?? { flash: null, lunge: false, spark: null }), lunge: true };
+    if (!prngRef.current) return; // prng ещё не инициализирован
+    let rafId: number;
+    let lastTime = performance.now();
+    let accumulator = 0;
+    const maxTicks = 4;
+    const prng = prngRef.current;
+
+    function frame(now: number) {
+      accumulator += now - lastTime;
+      lastTime = now;
+      let ticks = 0;
+      while (accumulator >= FIXED_TIMESTEP_MS && ticks < maxTicks) {
+        const next = simulateBattleTick(cur, FIXED_TIMESTEP_MS, prng);
+        const d = diffTurns(cur, next);
+        playSfx(d.sfx);
+        const tickRound = Math.floor(next.timeElapsed / FIXED_TIMESTEP_MS);
+        for (const u of [...cur.allies, ...cur.foes]) {
+          const n = next.allies.find((x) => x.uid === u.uid) ?? next.foes.find((x) => x.uid === u.uid);
+          if (n && u.alive && !n.alive) deathTurnRef.current.set(u.uid, tickRound);
         }
-        for (const s of d.sparks) {
-          out[s.uid] = { ...(out[s.uid] ?? { flash: null, lunge: false, spark: null }), spark: s.color };
+        setViews((prev) => {
+          const out: Record<string, UnitView> = {};
+          for (const uid of Object.keys(prev)) out[uid] = clearAnimations(prev[uid]);
+          for (const uid of d.lunges) {
+            out[uid] = { ...(out[uid] ?? { flash: null, lunge: false, spark: null }), lunge: true };
+          }
+          for (const s of d.sparks) {
+            out[s.uid] = { ...(out[s.uid] ?? { flash: null, lunge: false, spark: null }), spark: s.color };
+          }
+          return out;
+        });
+        if (d.popups.length) {
+          const withIds = d.popups.map((p) => ({ ...p, id: ++popupId.current }));
+          setPopups((ps) => [...ps, ...withIds]);
+          setTimeout(() => setPopups((ps) => ps.filter((x) => !withIds.some((w) => w.id === x.id))), 900);
         }
-        return out;
-      });
-      if (d.popups.length) {
-        const withIds = d.popups.map((p) => ({ ...p, id: ++popupId.current }));
-        setPopups((ps) => [...ps, ...withIds]);
-        setTimeout(() => setPopups((ps) => ps.filter((x) => !withIds.some((w) => w.id === x.id))), 900);
+        setLogLines((l) => [...l, ...next.log.map((e) => e.text)].slice(-7));
+        setCur(next);
+        accumulator -= FIXED_TIMESTEP_MS;
+        ticks++;
+        if (next.status !== 'active') break;
       }
-      setLogLines((l) => [...l, ...next.log.map((e) => e.text)].slice(-7));
-      setCur(next);
-    }, SPEEDS[speedIdx].ms);
-    return () => clearTimeout(t);
-  }, [cur, speedIdx]);
+      if (cur.status === 'active') {
+        rafId = requestAnimationFrame(frame);
+      }
+    }
+    rafId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafId);
+  }, [cur.status]);
 
   // сброс подсветки/выпадов
   useEffect(() => {
@@ -257,15 +279,15 @@ export function BattleScreen() {
     let s = cur;
     const texts: string[] = [];
     let guard = 0;
-    while (s.status === 'active' && guard < 220) {
-      const next = simulateTurn(s);
+    while (s.status === 'active' && guard < 3600) {
+      const next = simulateBattleTick(s, FIXED_TIMESTEP_MS, mulberry32(state.battle!.seed));
       texts.push(...next.log.map((e) => e.text));
       s = next;
       guard += 1;
     }
     for (const u of [...cur.allies, ...cur.foes]) {
       const n = s.allies.find((x) => x.uid === u.uid) ?? s.foes.find((x) => x.uid === u.uid);
-      if (n && u.alive && !n.alive) deathTurnRef.current.set(u.uid, s.round);
+      if (n && u.alive && !n.alive) deathTurnRef.current.set(u.uid, Math.floor(s.timeElapsed / FIXED_TIMESTEP_MS));
     }
     setViews(Object.fromEntries([...s.allies, ...s.foes].map((c) => [c.uid, { flash: null, lunge: false, spark: null }])));
     setLogLines((l) => [...l, ...texts].slice(-7));
@@ -278,7 +300,7 @@ export function BattleScreen() {
   // финальные анимации — только для погибших в финальном раунде
   const vanishOf = (c: Combatant): VanishKind => {
     if (!finished || c.alive) return null;
-    if (isCollapse || isAncient) return deathTurnRef.current.get(c.uid) === cur.round ? (isCollapse ? 'collapse' : 'ancient') : null;
+    if (isCollapse || isAncient) return deathTurnRef.current.get(c.uid) === Math.floor(cur.timeElapsed / FIXED_TIMESTEP_MS) ? (isCollapse ? 'collapse' : 'ancient') : null;
     return null;
   };
 
@@ -369,7 +391,7 @@ export function BattleScreen() {
           </div>
           <div className="flex flex-col text-[10px] font-bold uppercase tracking-wide text-stone-400 sm:text-[11px]">
             <span>этаж {floor}</span>
-            <span className={warning ? 'text-red-300' : undefined}>раунд {cur.round}/{turnLimit}</span>
+            <span className={warning ? 'text-red-300' : undefined}>{Math.max(0, Math.round((turnLimit - cur.timeElapsed) / 1000))}с</span>
           </div>
         </div>
         <div className="flex items-center gap-1.5">
