@@ -314,12 +314,13 @@ function finishActorTurn(actor: Combatant, log: BattleEvent[]): void {
 
 export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): BattleState {
   const s = clone(state);
-  if (s.status !== 'active') return s;
+  // §3.1.2.1: timeElapsed += dt — ВСЕГДА, даже если бой завершён
   s.timeElapsed += dt;
   s.spawnTimer -= dt;
   s.poisonBurnTimer -= dt;
   s.regenTimer -= dt;
   s.summonTimer -= dt;
+  if (s.status !== 'active') return s;
   const rng = prng; // используем переданный PRNG для детерминизма
   const log: BattleEvent[] = [];
 

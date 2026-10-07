@@ -48,22 +48,15 @@ describe('rt-battle: 1 тик → гном бьёт врага', () => {
 // ── тест 2: 60 тиков ≈ 1 сек ─────────────────────────────────────────
 
 describe('rt-battle: 60 тиков ≈ 1 сек', () => {
-  test('60 тиков → timeElapsed ≈ 1000 мс', () => {
-    // Бой должен длиться 60 тиков — делаем HP огромным, урон минимальным
+  test('60 тиков → timeElapsed ≈ 1000 мс (реальный бой)', () => {
+    // Реальный бой: гном бьёт крысу — бой может закончиться раньше,
+    // но timeElapsed растёт ВСЕГДА (fix #1: += dt ДО проверки status)
     const dwarves = [makeDwarf('d_brom')];
-    dwarves[0].baseATK = 1;
-    dwarves[0].baseHP = 9999;
-    dwarves[0].currentHP = 9999;
+    dwarves[0].baseATK = 20;
+    dwarves[0].baseHP = 200;
+    dwarves[0].currentHP = 200;
 
     const battle = createBattle(dwarves, ['e_rat'], 1, 42);
-    // Все юниты: 9999 HP, 1 ATK, высокий DEF
-    for (const c of [...battle.allies, ...battle.foes]) {
-      c.hp = 9999;
-      c.hpMax = 9999;
-      c.atk = 1;
-      c.def = 100;
-    }
-
     let state = battle;
     const prngCopy = mulberry32(42);
     const dt = 1000 / 60;
@@ -72,9 +65,9 @@ describe('rt-battle: 60 тиков ≈ 1 сек', () => {
       state = simulateBattleTick(state, dt, prngCopy);
     }
 
+    // timeElapsed должен быть ≈ 1000 мс — 60 тиков × 16.667 мс
     expect(state.timeElapsed).toBeGreaterThan(999);
     expect(state.timeElapsed).toBeLessThan(1001);
-    expect(state.status).toBe('active'); // бой не должен закончиться за 1 сек
   });
 });
 
