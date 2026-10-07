@@ -16,11 +16,13 @@ interface BattleCanvasProps {
 export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<any>(null);
+  const dataRef = useRef({ battle, dwarves, speed });
 
   const dwarfInfo = useMemo(() => {
     return dwarves.map((d) => ({ id: d.id, name: d.name, role: d.role }));
   }, [dwarves]);
 
+  // Создаём Phaser.Game один раз
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
     const container = containerRef.current;
@@ -49,6 +51,13 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
 
       gameInstance = new PhaserModule.Game(config);
       gameRef.current = gameInstance;
+
+      // Запускаем сцену с данными
+      gameInstance.scene.start(BATTLE_SCENE_KEY, {
+        battle,
+        dwarves: dwarfInfo,
+        speed,
+      });
     };
 
     init();
@@ -59,22 +68,24 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
         gameRef.current = null;
       }
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Обновление battle state
+  // Обновляем battle state и запускаем сцену заново при смене боя
   useEffect(() => {
+    dataRef.current = { battle, dwarves: dwarfInfo, speed };
     if (!gameRef.current) return;
+
+    // Перезапускаем сцену с новыми данными
     const scene = gameRef.current.scene.getScene(BATTLE_SCENE_KEY);
-    if (scene && (scene as any).updateFromBattle) {
-      (scene as any).updateFromBattle(battle, {
-        popups: [],
-        lunges: new Set<string>(),
-        sparks: [],
-        deadAllies: [],
-        deadFoes: [],
-      });
+    if (scene) {
+      (scene as any).sceneData = { battle, dwarves: dwarfInfo, speed };
     }
-  }, [battle]);
+    gameRef.current.scene.restart(BATTLE_SCENE_KEY, {
+      battle,
+      dwarves: dwarfInfo,
+      speed,
+    });
+  }, [battle.seed, battle.floor]); // Пересоздаём при смене seed/floor
 
   return (
     <div

@@ -20,6 +20,7 @@ export function createBattleScene(Phaser: any) {
 
   class BattleSceneClass extends Scene {
     declare data: any;
+    private sceneData: BattleSceneData | null = null;
     private allySprites = new Map<string, any>();
     private foeSprites = new Map<string, any>();
     private hpBars = new Map<string, any>();
@@ -30,8 +31,13 @@ export function createBattleScene(Phaser: any) {
       super({ key: BATTLE_SCENE_KEY });
     }
 
+    // Phaser передаёт данные из scene.start(key, data) сюда
+    init(data: BattleSceneData): void {
+      this.sceneData = data;
+    }
+
     preload(): void {
-      const data = this.data.values as BattleSceneData | undefined;
+      const data = this.sceneData;
       if (!data) return;
 
       // Гномы
@@ -51,7 +57,7 @@ export function createBattleScene(Phaser: any) {
     }
 
     create(): void {
-      const data = this.data.values as BattleSceneData | undefined;
+      const data = this.sceneData;
       if (!data) return;
 
       const { battle } = data;
@@ -146,7 +152,7 @@ export function createBattleScene(Phaser: any) {
     }
 
     private updateParallax(delta: number): void {
-      const data = this.data.values as BattleSceneData | undefined;
+      const data = this.sceneData;
       const speed = data?.speed ?? 2;
       const dt = (delta / 1000) * speed;
       const groundPx = GROUND_SPEED_PX_S * dt;
