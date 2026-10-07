@@ -16,6 +16,7 @@ import { HpBar } from './bits';
 import { DwarfSprite, FoeSprite } from './sprites';
 import { playSfx } from '@/lib/game/sfx';
 import type { SfxName } from '@/lib/game/sfx';
+import { BattleCanvas } from '@/lib/game/battle/BattleCanvas';
 
 // §3.1.1 v6.9: за 3 раунда до лимита — приближение (тряска, камнепад, гул, HUD-строка);
 // в финале — обвал (обычный/элита) или Древний (босс)
@@ -418,7 +419,7 @@ export function BattleScreen() {
         </div>
       </header>
 
-      {/* сцена: 5 слоёв параллакса + земля */}
+      {/* сцена: Phaser-холст + React-оверлеи */}
       <div
         ref={sceneRef}
         className={`panel-stone relative flex-1 overflow-hidden rounded-lg transition ${
@@ -426,22 +427,14 @@ export function BattleScreen() {
         } ${rumbling ? 'animate-rumble' : ''}`}
         style={{ minHeight: 300, '--run': SPEEDS[speedIdx].run } as CSSProperties}
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-[#141018] via-[#1c1512] to-[#241a10]" />
-        <div className="layer-far absolute inset-x-[-80px] bottom-8 h-44" />
-        <div className="layer-mid absolute inset-x-[-120px] bottom-8 h-36" />
-        <div className="absolute inset-x-0 bottom-8 overflow-hidden">
-          <div className="rune-track flex w-max font-runic text-2xl text-sky-300/70">
-            {[...RUNE_CHARS, ...RUNE_CHARS].map((ch, i) => (
-              <span key={i} className="rune-char px-5" style={{ animationDelay: `${(i % RUNE_CHARS.length) * 0.4}s` }}>
-                {ch}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="layer-near absolute inset-x-[-60px] bottom-8 h-28" />
-        <div className="layer-fog absolute inset-x-0 bottom-8 h-40" />
+        {/* Phaser-холст */}
+        <BattleCanvas
+          battle={cur}
+          dwarves={cur.allies.map((a) => ({ id: a.uid, name: a.name, role: a.role }))}
+          speed={SPEEDS[speedIdx].run}
+        />
 
-        {/* §3.1.1 приближение: HUD-строка и камнепад в зоне предупреждения */}
+        {/* §3.1.1 приближение: HUD-строка и камнепад */}
         {warning && (
           <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center">
             <div className="animate-pulse rounded bg-black/75 px-4 py-1.5 font-runic text-sm font-black text-red-300 ring-1 ring-red-800/80 sm:text-base">
@@ -462,54 +455,6 @@ export function BattleScreen() {
             }}
           />
         ))}
-
-        {/* гномы: линии слева, front у врагов; забег с края при старте боя */}
-        {allies.map((c, i) => {
-          const s = allySlot(i);
-          return (
-            <AllyUnit
-              key={c.uid}
-              c={c}
-              left={s.left}
-              bottom={s.bottom}
-              size={s.size}
-              z={s.z}
-              delay={s.delay}
-              view={views[c.uid] ?? { flash: null, lunge: false, spark: null }}
-              popups={popups.filter((p) => p.uid === c.uid)}
-              vanish={vanishOf(c)}
-            />
-          );
-        })}
-
-        {/* враги: выбегают справа навстречу, живые сдвигаются вперёд по мере гибели передних */}
-        {cur.foes.map((c, i) => {
-          const s = foeSlotOf(c);
-          return (
-            <FoeUnit
-              key={c.uid}
-              c={c}
-              left={s.left}
-              bottom={s.bottom}
-              size={s.size}
-              z={s.z}
-              delay={Math.min(i * 0.5, 6)}
-              view={views[c.uid] ?? { flash: null, lunge: false, spark: null }}
-              popups={popups.filter((p) => p.uid === c.uid)}
-              vanish={vanishOf(c)}
-            />
-          );
-        })}
-
-        {/* §3.1.1 финал «Древний»: силуэт выходит справа и светится */}
-        {isAncient && (
-          <div className="animate-ancient-enter pointer-events-none absolute bottom-8 right-2 z-[35]">
-            <FoeSprite name="Древний" size={compact ? 116 : 168} className="animate-ancient-glow" />
-          </div>
-        )}
-
-        {/* земля */}
-        <div className="ground-strip absolute inset-x-0 bottom-0 h-9" />
 
         {/* §3.1.1: эпичный финал — затемнение и текст по endReason */}
         {finished && (isCollapse || isAncient) && (
