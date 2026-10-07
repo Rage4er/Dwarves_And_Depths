@@ -164,3 +164,44 @@ architecture.md обязательно содержит:
    скриншот → чеклист UI → git-чекпоинт → progress.md.
 6. Фаза N+1 не начинается без приёмки N.
 ```
+
+---
+
+## §0.7. Правило работы с файлами
+
+```
+1. Write ≤ 200 строк / ≤ 8 КБ.
+   Edit ≤ 50 строк / ≤ 2 КБ.
+   Если больше — разбить на N частей.
+
+2. Новый файл:
+   a. Write(filePath, content: "") — пустой.
+   b. Edit(filePath, oldString: "", newString: "часть 1\n") —
+      10-50 строк.
+   c. Edit(filePath, oldString: "часть 1\n", newString:
+      "часть 1\nчасть 2\n") — ещё 10-50 строк.
+   d. Повторять, пока файл не готов.
+
+3. Правка:
+   a. Edit(filePath, oldString, newString) — ≤ 50 строк.
+   b. Если больше — N последовательных Edit.
+
+4. Разбиение по файлам:
+   Не: BattleScene.ts (500 строк)
+   А: BattleCanvas.tsx (50), BattleScene.ts (150),
+      animations.ts (100), parallax.ts (80), sprites.ts (100)
+
+5. Если Write/Edit падает с "invalid arguments":
+   a. Уменьшить размер в 2 раза.
+   b. Если всё ещё падает — Bash fallback:
+      cat > file.ts << 'EOF'
+      ...контент...
+      EOF
+   c. Записать инцидент в defects.md.
+
+6. Признаки, что пора разбить:
+   - Файл > 200 строк.
+   - Правка > 50 строк.
+   - Вложенные объекты/массивы.
+   - Write/Edit падает повторно.
+```
