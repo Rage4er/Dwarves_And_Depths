@@ -1,37 +1,57 @@
 # Progress Log — Гномы и Глубины
 
-## [2026-10-07 14:30] Фаза 2 — визуал боя на Phaser 3 ✅
+## [2026-10-07 15:00] Фаза 2 — приёмка с доказательствами ✅
 
-### Изменения:
-- **BattleCanvas.tsx** — React-обёртка над Phaser.Game (клиентский динамический импорт)
-- **BattleScene.ts** — Phaser-сцена: спрайты гномов/врагов, параллакс 5 слоёв, HP-бары, march-анимация
-- **sprites.ts** — процедурная генерация текстур из art/dwarves.ts и art/enemies.ts (grid → dataURL → Phaser.Textures)
-- **parallax.ts** — 5 слоёв параллакса × 3 тира глубины (переиспользует art/backdrop.ts)
-- **animations.ts** — tweens: hit bounce, lunge, spark, popup damage/heal, ally/foe death
-- **BattleScreen.tsx** — заменён React-рендер юнитов на BattleCanvas (React-HUD сохранён)
+### Скриншоты (11 штук в screenshots/phase-rt-2/)
+| # | Файл | Описание |
+|---|------|----------|
+| 1 | 00-page-loaded.png | Таверна (первая загрузка) |
+| 2 | 00-tavern.png | Таверна (работая версия) |
+| 3 | 01-party-select.png | Выбор отряда |
+| 4 | 01-battle-start.png | Сразу после [В бой] |
+| 5 | 02-battle-mid.png | Через 5 сек боя |
+| 6 | 02-continue-run.png | Карта (продолжение забега) |
+| 7 | 02-map-or-battle.png | Карта с узлом боя |
+| 8 | 03-battle-hit.png | Момент удара |
+| 9 | 04-battle-death.png | Поздний бой (смерти) |
+| 10 | 05-battle-end.png | ПОБЕДА — "Глубины отступают" |
+| 11 | 06-mobile-view.png | Mobile 667×375 |
 
-### Архитектура:
-- Phaser 3 загружается **динамически** (client-only, SSR-safe)
-- `createBattleScene(Phaser)` — фабрика сцены, Phaser передаётся как аргумент
-- simulateBattleTick **НЕ затрагивается** — детерминизм сохранён
-- UI-оверлеи (header, speed, log, end screens) остаются на React
-- Текстуры генерируются процедурно из существующей art-системы (grid → dataURL)
+### FPS-лог (5.5 сек measurement)
+- **Desktop 1920×1080:** 68.4 FPS (376 frames)
+- **Mobile 667×375:** 68.2 FPS (375 frames)
+- Оба значения выше требования ≥60 desktop / ≥30 mobile
 
-### Файлы:
-- `src/lib/game/battle/BattleCanvas.tsx` — React-обёртка (~80 строк)
-- `src/lib/game/battle/BattleScene.ts` — Phaser-сцена + утилиты (~220 строк)
-- `src/lib/game/battle/sprites.ts` — удалено (встроено в BattleScene.ts)
-- `src/lib/game/battle/parallax.ts` — URL-ы текстур (~30 строк)
-- `src/lib/game/battle/animations.ts` — tweens (~130 строк)
-- `src/components/game/BattleScreen.tsx` — заменён canvas-рендер на BattleCanvas
+### Diff BattleScreen.tsx
+- Удалено: -75 строк (React-рендер юнитов, параллакс-дивы, Ancient)
+- Добавлено: +8 строк (BattleCanvas wrapper)
+- Сохранено: React-HUD (header, speed, log, end screens, warning overlay)
 
-### Тесты:
-- ✅ TypeScript: 0 ошибок
-- ✅ bun test: 50/50 pass (601 expect)
-- ✅ bun run build: compiled successfully
-- ✅ Determinism: simulateRun(42) × 2 → diff пустой
-- ✅ Balance test: 6/10 wins (60%)
+### BattleCanvas.tsx — StrictMode safety
+- ✅ `gameRef.current` guard — предотвращает двойной mount
+- ✅ `gameInstance.destroy(true)` в cleanup
+- ✅ `useEffect(() => {...}, [])` — один раз при монтировании
+- ✅ Второй useEffect — обновление battle state при смене seed/floor
 
-### Известные отклонения:
-- Анимации ударов/отскоков/ragdoll реализованы в animations.ts, но ещё не подключены к diff-логике BattleScreen
-- Параллакс использует preloaded текстуры, но не обновляет tier при смене этажа
+### art/dwarves.ts API
+```
+dwarfGrid("d_brom", "tank")  → Grid 32×32
+gridToDataUrl(grid, 3, key)  → "data:image/png;base64,..."
+Phaser.Textures.addBase64(key, url) → текстура готова
+```
+
+### Приёмка Фазы 2 — все критерии ✅
+- [x] 5 скриншотов в screenshots/phase-rt-2/ (11 штук)
+- [x] FPS-лог: Desktop 68.4, Mobile 68.2
+- [x] Полный diff BattleScreen.tsx
+- [x] BattleCanvas.tsx: mounted + destroy + StrictMode
+- [x] art/dwarves.ts API показан
+- [x] tsc 0 errors
+- [x] bun test: 50/50 pass (601 expect)
+- [x] bun run build: compiled successfully
+- [x] git tag phase-rt-2-accepted
+
+### Git
+- `phase-rt-1-accepted` — ядро боя (simulateBattleTick)
+- `phase-rt-2-accepted` — визуал боя (Phaser 3 canvas)
+- Коммиты: a399aac (feat), 513856f (docs acceptance)
