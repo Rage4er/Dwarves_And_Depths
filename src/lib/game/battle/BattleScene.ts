@@ -20,7 +20,7 @@ export function createBattleScene(Phaser: any) {
 
   class BattleSceneClass extends Scene {
     declare data: any;
-    private sceneData: BattleSceneData | null = null;
+    private _battleData: BattleSceneData | null = null;
     private allySprites = new Map<string, any>();
     private foeSprites = new Map<string, any>();
     private hpBars = new Map<string, any>();
@@ -31,34 +31,41 @@ export function createBattleScene(Phaser: any) {
       super({ key: BATTLE_SCENE_KEY });
     }
 
-    // Phaser передаёт данные из scene.start(key, data) сюда
+    // Phaser: init(data) вызывается ПЕРЕД preload() при scene.start(key, data).
+    // Сохраняем данные в поле — они доступны в preload и create.
     init(data: BattleSceneData): void {
-      this.sceneData = data;
+      this._battleData = data ?? null;
     }
 
+    // FIX: используем this.load.base64() вместо this.textures.addBase64().
+    // Phaser ждёт загрузки ВСЕХ base64-текстур перед create().
+    // textures.addBase64() — async (Image.onload), create() запускается
+    // пока текстуры не готовы → спрайты с "missing texture".
     preload(): void {
-      const data = this.sceneData;
-      if (!data) return;
+      const floor = this._battleData?.battle?.floor ?? 1;
 
-      // Гномы
-      for (const d of data.dwarves) {
-        registerDwarfTexture(this, d.id, d.role, `dwarf_${d.id}`);
+      // Гномы — все доступные + текущий бой
+      const allDwarves = ['d_brom', 'd_grim', 'd_torvin', 'd_bombur', 'd_bifur', 'd_dvalin', 'd_bofur2', 'd_balin', 'd_bifur2', 'd_nori', 'd_bombur2', 'd_dvalin2', 'd_dori', 'd_nori2', 'd_bofur'];
+      for (const id of allDwarves) {
+        registerDwarfTexture(this, id, 'any', `dwarf_${id}`);
       }
-      // Враги
-      const foeNames = new Set(data.battle.foes.map((f: any) => f.name));
-      for (const name of foeNames) {
+      // Враги — все доступные + текущий бой
+      const allFoes = ['goblin', 'orc', 'spider', 'skeleton', 'troll', 'demon'];
+      for (const name of allFoes) {
         registerFoeTexture(this, name, `foe_${name}`);
       }
-      // Параллакс
-      const urls = parallaxTextureUrls(data.battle.floor);
+      // Параллакс для текущего этажа
+      const urls = parallaxTextureUrls(floor);
       for (const { key, url } of urls) {
-        this.textures.addBase64(key, url);
+        this.load.base64(`${floor}_${key}`, url);
       }
     }
 
     create(): void {
-      const data = this.sceneData;
-      if (!data) return;
+      // FIX: читаем из _battleData (установлен в init()). this.data.values
+      // undefined при авто-старте через config → спрайты не создавались.
+      const data = this._battleData;
+      if (!data?.battle) return;
 
       const { battle } = data;
       const { width, height } = this.scale;
@@ -100,6 +107,8 @@ export function createBattleScene(Phaser: any) {
 
     private createParallax(width: number, height: number): void {
       const groundY = height - 30;
+      const floor = this._battleData?.battle?.floor ?? 1;
+      const prefix = `${floor}_`;
       this.groundGraphics = this.add.graphics();
       this.groundGraphics.setDepth(50);
       this.groundGraphics.fillStyle(0x2f2114, 1);
@@ -114,7 +123,7 @@ export function createBattleScene(Phaser: any) {
         const alpha = 0.4 + i * 0.12;
 
         for (let j = 0; j < count; j++) {
-          const key = `plx_${i}`;
+          const key = `${prefix}plx_${i}`;
           if (!this.textures.exists(key)) continue;
           const sprite = this.add.sprite(
             j * tileW - tileW * 0.5,
@@ -152,7 +161,7 @@ export function createBattleScene(Phaser: any) {
     }
 
     private updateParallax(delta: number): void {
-      const data = this.sceneData;
+      const data = (this.data as any).values as BattleSceneData;
       const speed = data?.speed ?? 2;
       const dt = (delta / 1000) * speed;
       const groundPx = GROUND_SPEED_PX_S * dt;
@@ -170,7 +179,7 @@ export function createBattleScene(Phaser: any) {
     }
 
     private updateMarch(_delta: number): void {
-      const time = (this.time as any).now?.() ?? 0;
+      const time = (this.time as any).now ?? 0;
       for (const [uid, sprite] of this.allySprites) {
         const offset = uid.charCodeAt(0) ?? 0;
         sprite.y += Math.sin(time * 0.005 + offset) * 0.05;

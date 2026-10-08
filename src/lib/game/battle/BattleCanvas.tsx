@@ -16,13 +16,21 @@ interface BattleCanvasProps {
 export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<any>(null);
-  const dataRef = useRef({ battle, dwarves, speed });
+
+  // Refs для live-обновления — избегаем stale closure в useEffect
+  const battleRef = useRef(battle);
+  const dwarvesRef = useRef(dwarves);
+  const speedRef = useRef(speed);
+
+  useEffect(() => { battleRef.current = battle; }, [battle]);
+  useEffect(() => { dwarvesRef.current = dwarves; }, [dwarves]);
+  useEffect(() => { speedRef.current = speed; }, [speed]);
 
   const dwarfInfo = useMemo(() => {
     return dwarves.map((d) => ({ id: d.id, name: d.name, role: d.role }));
   }, [dwarves]);
 
-  // Создаём Phaser.Game один раз
+  // Создаём Phaser.Game один раз — без auto-start сцены
   useEffect(() => {
     if (!containerRef.current || gameRef.current) return;
     const container = containerRef.current;
@@ -38,7 +46,8 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
         width: 896,
         height: 504,
         parent: container.id,
-        scene: [BattleSceneClass],
+        // FIX: НЕ передаём scene в config — сцена auto-startится без данных.
+        // Добавляем вручную с active: false, затем стартуем с данными.
         pixelArt: true,
         roundPixels: true,
         backgroundColor: '#141018',
@@ -52,11 +61,12 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
       gameInstance = new PhaserModule.Game(config);
       gameRef.current = gameInstance;
 
-      // Запускаем сцену с данными
+      // FIX: добавляем сцену БЕЗ auto-start, затем стартуем с данными
+      gameInstance.scene.add(BATTLE_SCENE_KEY, BattleSceneClass, false);
       gameInstance.scene.start(BATTLE_SCENE_KEY, {
-        battle,
-        dwarves: dwarfInfo,
-        speed,
+        battle: battleRef.current,
+        dwarves: dwarvesRef.current.map((d) => ({ id: d.id, name: d.name, role: d.role })),
+        speed: speedRef.current,
       });
     };
 
@@ -70,22 +80,25 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Обновляем battle state и запускаем сцену заново при смене боя
+  // FIX: live-обновление battle state на каждый React-рендер.
+  // Сцена получает snapshot при старте — без этого HP-бары не обновляются.
   useEffect(() => {
-    dataRef.current = { battle, dwarves: dwarfInfo, speed };
     if (!gameRef.current) return;
-
-    // Перезапускаем сцену с новыми данными
     const scene = gameRef.current.scene.getScene(BATTLE_SCENE_KEY);
-    if (scene) {
-      (scene as any).sceneData = { battle, dwarves: dwarfInfo, speed };
+    if (scene?.updateFromBattle) {
+      scene.updateFromBattle(battleRef.current);
     }
-    gameRef.current.scene.restart(BATTLE_SCENE_KEY, {
-      battle,
-      dwarves: dwarfInfo,
-      speed,
+  }, [battle]);
+
+  // Обновляем при смене seed/floor — перезапускаем сцену
+  useEffect(() => {
+    if (!gameRef.current) return;
+    gameRef.current.scene.start(BATTLE_SCENE_KEY, {
+      battle: battleRef.current,
+      dwarves: dwarvesRef.current,
+      speed: speedRef.current,
     });
-  }, [battle.seed, battle.floor]); // Пересоздаём при смене seed/floor
+  }, [battle.seed, battle.floor]);
 
   return (
     <div
@@ -96,3 +109,4 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
     />
   );
 }
+

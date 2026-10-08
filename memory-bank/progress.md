@@ -1,5 +1,13 @@
 # Progress Log — Гномы и Глубины
 
+## [2026-10-07 16:36] v7.3-backlog [created]
+- memory-bank/v7.3-backlog.md — генератор + подготовка к 3D
+- 09-checklist.md — §9.4 DoD v7.3 (черновик)
+- index.md — ссылка на v7.3-backlog.md
+- 10-version-changes.md — сводка v7.2→v7.3
+
+## [2026-10-07 16:36] v7.2 [in progress] — Фаза 2 (Phaser canvas)
+
 ## [2026-10-07 15:00] Фаза 2 — приёмка с доказательствами ✅
 
 ### Скриншоты (11 штук в screenshots/phase-rt-2/)
