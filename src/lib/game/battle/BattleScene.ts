@@ -37,10 +37,8 @@ export function createBattleScene(Phaser: any) {
       this._battleData = data ?? null;
     }
 
-    // FIX: используем this.load.base64() вместо this.textures.addBase64().
-    // Phaser ждёт загрузки ВСЕХ base64-текстур перед create().
-    // textures.addBase64() — async (Image.onload), create() запускается
-    // пока текстуры не готовы → спрайты с "missing texture".
+    // Phaser loader ждёт загрузки ВСЕХ load.image() перед create().
+    // Используем load.image() с base64-URL для синхронной загрузки.
     preload(): void {
       const floor = this._battleData?.battle?.floor ?? 1;
 
@@ -54,10 +52,10 @@ export function createBattleScene(Phaser: any) {
       for (const name of allFoes) {
         registerFoeTexture(this, name, `foe_${name}`);
       }
-      // Параллакс для текущего этажа
+      // Параллакс для текущего этажа — используем load.image() с base64-URL
       const urls = parallaxTextureUrls(floor);
       for (const { key, url } of urls) {
-        this.load.base64(`${floor}_${key}`, url);
+        this.load.image(`${floor}_${key}`, url);
       }
     }
 

@@ -61,6 +61,11 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
       gameInstance = new PhaserModule.Game(config);
       gameRef.current = gameInstance;
 
+      // Экспортируем для Playwright-тестов
+      if (typeof window !== 'undefined') {
+        (window as any).__phaserGame = gameInstance;
+      }
+
       // FIX: добавляем сцену БЕЗ auto-start, затем стартуем с данными
       gameInstance.scene.add(BATTLE_SCENE_KEY, BattleSceneClass, false);
       gameInstance.scene.start(BATTLE_SCENE_KEY, {
@@ -76,6 +81,9 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
       if (gameInstance) {
         gameInstance.destroy(true);
         gameRef.current = null;
+        if (typeof window !== 'undefined') {
+          (window as any).__phaserGame = null;
+        }
       }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
