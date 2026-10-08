@@ -136,3 +136,6 @@ dist
 
 pages/_studio/
 
+# MCP servers
+.playwright-mcp/
+
