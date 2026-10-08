@@ -230,10 +230,11 @@ function createFoeSprite(scene: any, x: number, y: number, name: string, key?: s
 function createHpBar(scene: any, parent: any, maxHp: number, currentHp: number): any {
   const barW = 60;
   const barH = 5;
+  // Graphics не имеет setOrigin() — используем только setPosition()
+  const barY = parent.y - (parent.texture?.height ?? 48) - 14;
   const g = scene.add.graphics();
   g.setDepth(30);
-  g.setPosition(parent.x, parent.y - (parent.texture?.width ?? 48) - 14);
-  g.setOrigin(0.5, 0);
+  g.setPosition(parent.x, barY);
   g.fillStyle(0x1a1a1a, 0.8);
   g.fillRect(-barW / 2, 0, barW, barH);
   updateHpBar(g, barW, barH, maxHp, currentHp);

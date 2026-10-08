@@ -6,7 +6,8 @@ test.describe('Battle screen', () => {
     await page.goto('./');
 
     // Ждём заголовок — холодный старт Next.js может занять >30 сек
-    await expect(page.locator('h1')).toContainText('Гномы и Глубины', { timeout: 120000 });
+    // Заголовок в верхнем регистре: "ГНОМЫ И ГЛУБИНЫ"
+    await expect(page.locator('h1')).toContainText('ГНОМЫ И ГЛУБИНЫ', { timeout: 120000 });
 
     // Таверна → Новый поход
     await page.click('button:has-text("Новый поход")');
@@ -26,8 +27,8 @@ test.describe('Battle screen', () => {
     await expect(page.getByRole('button', { name: 'В бой' })).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("В бой")');
 
-    // Бой — ждём canvas
-    const canvas = page.locator('canvas');
+    // Бой — ждём canvas (первый, StrictMode дублирует)
+    const canvas = page.locator('canvas').first();
     await expect(canvas).toBeVisible({ timeout: 15000 });
 
     // Ждём 3 сек — бой идёт
@@ -65,7 +66,8 @@ test.describe('Battle screen', () => {
     await page.click('button:has-text("Начать спуск")');
     await expect(page.getByRole('button', { name: 'В бой' })).toBeVisible({ timeout: 10000 });
     await page.click('button:has-text("В бой")');
-    await page.locator('canvas').waitFor({ timeout: 15000 });
+    // .first() — StrictMode React дублирует canvas
+    await page.locator('canvas').first().waitFor({ timeout: 15000 });
     await page.waitForTimeout(5000);
 
     expect(errors).toEqual([]);
