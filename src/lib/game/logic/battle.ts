@@ -3,10 +3,10 @@
 
 import type {
   BattleEvent, BattleResult, BattleState, Combatant, Dwarf, Effect, Enemy,
-  Position, Role, StatusEffect,
+  Role, StatusEffect,
 } from '../types';
 import { HP_REGEN_CAP, ENEMY_HP_REGEN_CAP, POSITION_DAMAGE } from '../types';
-import { mulberry32, pick, randInt, type PRNG } from '../rng';
+import { mulberry32, randInt, type PRNG } from '../rng';
 import { spawnGroup, spawnEnemy, ENEMY_TABLE, type EnemyKind } from '../data/enemies';
 import { dwarfStats, equipEffects } from './stats';
 import { evaluateSynergies } from '../data/synergies';
@@ -198,34 +198,32 @@ export function createBattle(
   };
 }
 
-function aliveIn(side: Combatant[], pos?: Position): Combatant[] {
-  return side.filter((c) => c.alive && (!pos || c.position === pos));
+// §3.1.5 (редакция под реалтайм, референс Dwarves: Glory, Death and Loot):
+// цель — БЛИЖАЙШИЙ живой юнит в пределах радиуса атаки, случайного выбора нет.
+// Taunt приоритетен, но тоже берётся ближайшим из провокаторов.
+// Никого в радиусе → null, и юнит бежит вперёд (§3.1.2.1 шаг 2).
+// Порядок обхода массива фиксирован → при равных дистанциях выигрывает юнит
+// с меньшим индексом: детерминизм без обращения к PRNG (§2.4).
+function nearestInRange(units: Combatant[], fromX: number, range: number): Combatant | null {
+  let best: Combatant | null = null;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (const u of units) {
+    if (!u.alive) continue;
+    const dist = Math.abs(u.x - fromX);
+    if (dist <= range && dist < bestDist) {
+      best = u;
+      bestDist = dist;
+    }
+  }
+  return best;
 }
 
-// §3.1.5 приоритет цели: провокация → front → mid → back; внутри линии — PRNG.
-// v7.0: ranged-враги выбирают цель среди ВСЕХ живых гномов без приоритета линий
-// (пошаговый аналог «стреляет по ближайшему в attackRange 260» — тыл не укрытие),
-// провокация приоритетна для них по-прежнему.
-// §3.1.2.1 шаг 3/4: кандидаты ограничены дальностью атаки — иначе юнит стоит
-// на месте (враг в радиусе есть) и не может ударить выбранного далеко.
-function chooseTarget(
-  rng: PRNG,
-  actor: Combatant,
-  enemies: Combatant[],
-  range: number,
-): Combatant | null {
-  const inRange = (c: Combatant) => Math.abs(c.x - actor.x) <= range;
+function chooseTarget(actor: Combatant, enemies: Combatant[], range: number): Combatant | null {
   if (actor.side === 'foe') {
-    const taunts = aliveIn(enemies).filter((c) => c.tauntLeft > 0 && inRange(c));
-    if (taunts.length) return pick(rng, taunts);
-    const alive = aliveIn(enemies).filter(inRange);
-    if (actor.attackType === 'ranged') return alive.length ? pick(rng, alive) : null;
+    const taunter = nearestInRange(enemies.filter((c) => c.tauntLeft > 0), actor.x, range);
+    if (taunter) return taunter;
   }
-  for (const line of ['front', 'mid', 'back'] as Position[]) {
-    const candidates = aliveIn(enemies, line).filter(inRange);
-    if (candidates.length) return pick(rng, candidates);
-  }
-  return null;
+  return nearestInRange(enemies, actor.x, range);
 }
 
 function applyDamage(c: Combatant, dmg: number): void {
@@ -354,12 +352,6 @@ function clampFieldX(x: number): number {
   return Math.min(FIELD_MAX_X, Math.max(FIELD_MIN_X, x));
 }
 
-function nearestDistance(from: Combatant, units: Combatant[]): number {
-  let best = Number.POSITIVE_INFINITY;
-  for (const u of units) if (u.alive) best = Math.min(best, Math.abs(u.x - from.x));
-  return best;
-}
-
 // §3.1: дальность гнома — по роли; врага — по типу атаки (v7.0 ranged бьёт с 260 px)
 function attackRangeOf(c: Combatant): number {
   if (c.side === 'ally') return ATTACK_RANGE_BY_ROLE[c.role] ?? ATTACK_RANGE_TANK;
@@ -374,21 +366,21 @@ function cooldownOf(c: Combatant): number {
   return base / (1 + c.speed / 30);
 }
 
-// Шаг 2: гном бежит вправо, пока в его дальности нет живого врага;
-// враг бежит влево, пока в его дальности нет живого гнома.
+// Шаг 2: гном бежит вправо, пока в его дальности нет живого врага; враг бежит
+// влево, пока в его дальности нет живого гнома (§3.1.2.1: нет цели в радиусе → вперёд).
 // Кулдаун уменьшается на dt у каждого живого юнита каждый тик (§3.1.2.1 3/4).
 function applyMovementAndTimers(s: BattleState, dt: number): void {
   for (const c of s.allies) {
     if (!c.alive) continue;
     c.attackCooldown -= dt;
-    if (nearestDistance(c, s.foes) > attackRangeOf(c)) {
+    if (!nearestInRange(s.foes, c.x, attackRangeOf(c))) {
       c.x = clampFieldX(c.x + c.speed * MOVE_SPEED_SCALE * dt / 1000);
     }
   }
   for (const c of s.foes) {
     if (!c.alive) continue;
     c.attackCooldown -= dt;
-    if (nearestDistance(c, s.allies) > attackRangeOf(c)) {
+    if (!nearestInRange(s.allies, c.x, attackRangeOf(c))) {
       c.x = clampFieldX(c.x - c.speed * MOVE_SPEED_SCALE * dt / 1000);
     }
   }
@@ -477,24 +469,9 @@ export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): 
 
     const range = attackRangeOf(actor);
 
-    // §3.1.5: taunt — форс цели, пока жив провокатор и не истекла длительность
-    if (actor.side === 'foe') {
-      const taunters = s.allies.filter(
-        (c) => c.alive && c.tauntLeft > 0 && Math.abs(c.x - actor.x) <= range,
-      );
-      if (taunters.length) {
-        const tauntTarget = pick(rng, taunters);
-        if (canStrike(actor, tauntTarget)) {
-          performStrike(rng, actor, tauntTarget, ownTeam, log, s.floor);
-        }
-        finishActorTurn(actor, log);
-        continue;
-      }
-    }
-
-    // §3.1.2.1: цель ищется только среди юнитов в дальности — до сближения удара нет,
-    // но остальные юниты продолжают действовать (не break)
-    const target = chooseTarget(rng, actor, enemies, range);
+    // §3.1.5: цель — ближайший в радиусе (taunt приоритетен внутри chooseTarget).
+    // Никого в радиусе → удара нет, юнит продолжает сближение (шаг 2)
+    const target = chooseTarget(actor, enemies, range);
     if (!target) continue;
     // §3.1.2.1 шаг 3/4: копилка кулдауна решает, состоится ли удар
     if (canStrike(actor, target)) {
