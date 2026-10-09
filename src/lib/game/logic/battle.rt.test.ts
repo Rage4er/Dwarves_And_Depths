@@ -27,16 +27,25 @@ function makeSimpleBattle(): { battle: BattleState; prng: PRNG } {
   return { battle, prng };
 }
 
-// ── тест 1: 1 тик → гном бьёт врага ──────────────────────────────────
+// ── тест 1: гном добегает и бьёт врага ───────────────────────────────
+// §3.1: стороны стартовят на SPAWN_LEFT_X / SPAWN_RIGHT_X и сближаются, поэтому
+// удар возможен не в первом тике, а после входа в ATTACK_RANGE.
 
-describe('rt-battle: 1 тик → гном бьёт врага', () => {
-  test('гном с ATK=20 бьёт крысу (DEF=2) за 1 тик', () => {
+describe('rt-battle: гном добегает и бьёт врага', () => {
+  test('гном с ATK=20 наносит урон крысе (DEF=2) после сближения', () => {
     const { battle, prng } = makeSimpleBattle();
     const ratHpBefore = battle.foes[0].hp;
-    const next = tick(battle, prng);
+    expect(battle.foes[0].x).toBeGreaterThan(battle.allies[0].x);
+
+    let next = battle;
+    let hitEvent: ReturnType<typeof next.log.find> | undefined;
+    // сближение + удар обязаны произойти задолго до лимита боя (30 с = 1800 тиков)
+    for (let i = 0; i < 900 && !hitEvent; i++) {
+      next = tick(next, prng);
+      hitEvent = next.log.find((e) => e.kind === 'hit' && e.actor === 'Бром');
+    }
 
     // Гном должен ударить — у него ATK 20, у крысы DEF 2, minDamage = 1
-    const hitEvent = next.log.find((e) => e.kind === 'hit' && e.actor === 'Бром');
     expect(hitEvent).toBeDefined();
     expect(hitEvent!.value).toBeGreaterThan(0);
 
@@ -107,6 +116,31 @@ describe('rt-battle: детерминизм — 100 тиков × 2 → один
 
     // Статус одинаковый
     expect(s1.status).toBe(s2.status);
+  });
+});
+
+// ── тест 3b: детерминизм ПОЗИЦИЙ (§3.1, приёмка Фазы 2) ──────────────
+// simulateRun возвращает RunState без координат, поэтому позиции проверяются
+// отдельно: полный сериализованный BattleState (все x/y) два прогона → идентично
+
+describe('rt-battle: детерминизм позиций — x/y совпадают после 300 тиков', () => {
+  test('один seed → идентичный BattleState целиком, включая x/y', () => {
+    const dwarves = [makeDwarf('d_brom'), makeDwarf('d_grim')];
+    const b1 = createBattle(dwarves, ['e_goblin', 'e_rat', 'e_spider'], 3, 42);
+    const b2 = createBattle(dwarves, ['e_goblin', 'e_rat', 'e_spider'], 3, 42);
+    const prng1 = mulberry32(42);
+    const prng2 = mulberry32(42);
+
+    let s1 = b1;
+    let s2 = b2;
+    for (let i = 0; i < 300; i++) {
+      s1 = tick(s1, prng1);
+      s2 = tick(s2, prng2);
+    }
+
+    expect(JSON.stringify(s1)).toBe(JSON.stringify(s2));
+    // позиции реально двигались (иначе проверка выше тривиальна)
+    expect(s1.allies[0].x).toBeGreaterThan(b1.allies[0].x);
   });
 });
 

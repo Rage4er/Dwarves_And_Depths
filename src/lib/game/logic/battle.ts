@@ -3,7 +3,7 @@
 
 import type {
   BattleEvent, BattleResult, BattleState, Combatant, Dwarf, Effect, Enemy,
-  Position, StatusEffect,
+  Position, Role, StatusEffect,
 } from '../types';
 import { HP_REGEN_CAP, ENEMY_HP_REGEN_CAP, POSITION_DAMAGE } from '../types';
 import { mulberry32, pick, randInt, type PRNG } from '../rng';
@@ -28,6 +28,31 @@ const WAVE_ALIVE_CAP = 3;
 // v7.0 §6.4: ranged-враги (лучник, шаман) бьют ×0.7 (реалтайм-штраф дальнего боя),
 // но игнорируют позиционный множитель линии цели — «снайпят» по любому гному
 const RANGED_ATTACK_MULT = 0.7;
+
+// §3.1 Реалтайм: арена 1920×1080 (логический размер), земля y = 900.
+// Гномы спавнятся слева колонками, враги — справа, бегут навстречу.
+export const FIELD_GROUND_Y = 900;
+export const SPAWN_LEFT_X = 100;
+export const SPAWN_RIGHT_X = 1820;
+export const COLUMN_SPACING = 80;
+export const BOUNCE_DISTANCE = 100;
+// §3.1: дальность атаки по ролям (px) и базовые кулдауны (мс, v7.1 ×1.5)
+export const ATTACK_RANGE_TANK = 80;
+export const RANGED_ENEMY_RANGE = 260; // v7.0: лучник/шаман стреляют с 260 px
+export const ENEMY_ATTACK_COOLDOWN = 1000;
+const ATTACK_RANGE_BY_ROLE: Record<Role, number> = {
+  tank: 80, warrior: 80, ranged: 300, mage: 250, support: 150, any: 80,
+};
+const ATTACK_COOLDOWN_BASE: Record<Role, number> = {
+  tank: 900, warrior: 900, support: 900, ranged: 600, mage: 600, any: 900,
+};
+// Границы арены: за них отскок и бег не выпускают юнита (спрайт всегда виден)
+const FIELD_MIN_X = 40;
+const FIELD_MAX_X = 1880;
+// §3.1 даёт x += speed * dt/1000, но при speed гномов 40–110 и speed врагов 4–12
+// сближение 1720 px занимает 16–22 с из 30 доступных → бои упираются в таймаут.
+// Множитель — единая ручка темпа арены; значение подтверждено замером (§7.5).
+export const MOVE_SPEED_SCALE = 8;
 
 // §3.1 Реалтайм: фиксированный шаг симуляции
 export const FIXED_TIMESTEP_MS = 1000 / 60; // 16.667 мс, 60 тиков/сек
@@ -88,13 +113,13 @@ function toCombatant(
     role: dwarf.role,
     iconSeed: index + 1,
     tauntLeft: 0,
-    x: 0,
-    y: 0,
+    x: SPAWN_LEFT_X + COLUMN_SPACING * index,
+    y: FIELD_GROUND_Y,
     attackCooldown: 0,
   };
 }
 
-function toFoeCombatant(enemy: Enemy, index: number): Combatant {
+function toFoeCombatant(enemy: Enemy, index: number, x: number = SPAWN_RIGHT_X): Combatant {
   return {
     uid: `${enemy.id}_${index}`,
     side: 'foe',
@@ -114,8 +139,8 @@ function toFoeCombatant(enemy: Enemy, index: number): Combatant {
     attackType: enemy.attackType,
     isBoss: enemy.isBoss,
     isElite: enemy.isElite,
-    x: 0,
-    y: 0,
+    x,
+    y: FIELD_GROUND_Y,
     attackCooldown: 0,
   };
 }
@@ -148,7 +173,10 @@ export function createBattle(
     : (spawnGroup(mulberry32(seed ^ 0x5f3759df), floor, kind).map((e) => e.id) as EnemyKind[]);
   // босс — соло (его поток — summon, §2.3); обычный бой/элита — передовой отряд + резерв подкреплений
   const front = kind === 'boss' ? groupIds.length : Math.min(WAVE_FRONT, groupIds.length);
-  const foes = groupIds.slice(0, front).map((id, i) => toFoeCombatant(spawnEnemy(id, floor, i), i));
+  // передовой отряд — колонками от правого края (иначе спрайты слипаются в одной точке)
+  const foes = groupIds
+    .slice(0, front)
+    .map((id, i) => toFoeCombatant(spawnEnemy(id, floor, i), i, SPAWN_RIGHT_X - COLUMN_SPACING * i));
   return {
     seed,
     timeElapsed: 0,
@@ -177,16 +205,24 @@ function aliveIn(side: Combatant[], pos?: Position): Combatant[] {
 // §3.1.5 приоритет цели: провокация → front → mid → back; внутри линии — PRNG.
 // v7.0: ranged-враги выбирают цель среди ВСЕХ живых гномов без приоритета линий
 // (пошаговый аналог «стреляет по ближайшему в attackRange 260» — тыл не укрытие),
-// провокация приоритетна для них по-прежнему
-function chooseTarget(rng: PRNG, actor: Combatant, enemies: Combatant[]): Combatant | null {
+// провокация приоритетна для них по-прежнему.
+// §3.1.2.1 шаг 3/4: кандидаты ограничены дальностью атаки — иначе юнит стоит
+// на месте (враг в радиусе есть) и не может ударить выбранного далеко.
+function chooseTarget(
+  rng: PRNG,
+  actor: Combatant,
+  enemies: Combatant[],
+  range: number,
+): Combatant | null {
+  const inRange = (c: Combatant) => Math.abs(c.x - actor.x) <= range;
   if (actor.side === 'foe') {
-    const taunts = aliveIn(enemies).filter((c) => c.tauntLeft > 0);
+    const taunts = aliveIn(enemies).filter((c) => c.tauntLeft > 0 && inRange(c));
     if (taunts.length) return pick(rng, taunts);
-    const alive = aliveIn(enemies);
+    const alive = aliveIn(enemies).filter(inRange);
     if (actor.attackType === 'ranged') return alive.length ? pick(rng, alive) : null;
   }
   for (const line of ['front', 'mid', 'back'] as Position[]) {
-    const candidates = aliveIn(enemies, line);
+    const candidates = aliveIn(enemies, line).filter(inRange);
     if (candidates.length) return pick(rng, candidates);
   }
   return null;
@@ -312,6 +348,73 @@ function finishActorTurn(actor: Combatant, log: BattleEvent[]): void {
   }
 }
 
+// ── §3.1.2.1 шаги 2–4: движение, дальность, кулдауны ─────────────────
+
+function clampFieldX(x: number): number {
+  return Math.min(FIELD_MAX_X, Math.max(FIELD_MIN_X, x));
+}
+
+function nearestDistance(from: Combatant, units: Combatant[]): number {
+  let best = Number.POSITIVE_INFINITY;
+  for (const u of units) if (u.alive) best = Math.min(best, Math.abs(u.x - from.x));
+  return best;
+}
+
+// §3.1: дальность гнома — по роли; врага — по типу атаки (v7.0 ranged бьёт с 260 px)
+function attackRangeOf(c: Combatant): number {
+  if (c.side === 'ally') return ATTACK_RANGE_BY_ROLE[c.role] ?? ATTACK_RANGE_TANK;
+  return c.attackType === 'ranged' ? RANGED_ENEMY_RANGE : ATTACK_RANGE_TANK;
+}
+
+// §3.1.2.1 шаг 3: cooldown = ATTACK_COOLDOWN_BASE[role] / (1 + speed/30),
+// шаг 4: у врагов фиксированный ENEMY_ATTACK_COOLDOWN
+function cooldownOf(c: Combatant): number {
+  if (c.side === 'foe') return ENEMY_ATTACK_COOLDOWN;
+  const base = ATTACK_COOLDOWN_BASE[c.role] ?? 900;
+  return base / (1 + c.speed / 30);
+}
+
+// Шаг 2: гном бежит вправо, пока в его дальности нет живого врага;
+// враг бежит влево, пока в его дальности нет живого гнома.
+// Кулдаун уменьшается на dt у каждого живого юнита каждый тик (§3.1.2.1 3/4).
+function applyMovementAndTimers(s: BattleState, dt: number): void {
+  for (const c of s.allies) {
+    if (!c.alive) continue;
+    c.attackCooldown -= dt;
+    if (nearestDistance(c, s.foes) > attackRangeOf(c)) {
+      c.x = clampFieldX(c.x + c.speed * MOVE_SPEED_SCALE * dt / 1000);
+    }
+  }
+  for (const c of s.foes) {
+    if (!c.alive) continue;
+    c.attackCooldown -= dt;
+    if (nearestDistance(c, s.allies) > attackRangeOf(c)) {
+      c.x = clampFieldX(c.x - c.speed * MOVE_SPEED_SCALE * dt / 1000);
+    }
+  }
+}
+
+// §3.1.2.1 шаг 3/4: удар выходит, только когда кулдаун готов И цель в дальности
+function canStrike(actor: Combatant, target: Combatant): boolean {
+  return actor.attackCooldown <= 0 && Math.abs(target.x - actor.x) <= attackRangeOf(actor);
+}
+
+function performStrike(
+  rng: PRNG,
+  actor: Combatant,
+  target: Combatant,
+  targetTeam: Combatant[],
+  log: BattleEvent[],
+  floor: number,
+): void {
+  strike(rng, actor, target, targetTeam, log, floor);
+  // §3.1: гном бьёт → врага отбрасывает вправо; враг бьёт → гнома влево
+  target.x = clampFieldX(
+    target.x + (actor.side === 'ally' ? BOUNCE_DISTANCE : -BOUNCE_DISTANCE),
+  );
+  actor.attackCooldown = cooldownOf(actor);
+}
+
 export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): BattleState {
   const s = clone(state);
   // §3.1.2.1: timeElapsed += dt — ВСЕГДА, даже если бой завершён
@@ -338,6 +441,9 @@ export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): 
       log.push({ kind: 'status', actor: 'Подкрепление', text: `Из туннелей выбирается ${foe.name}!` });
     }
   }
+
+  // §3.1.2.1 шаг 2: сближение сторон и тик кулдаунов (единственное новое состояние — x)
+  applyMovementAndTimers(s, dt);
 
   const order = [...s.allies, ...s.foes]
     .filter((c) => c.alive)
@@ -369,19 +475,31 @@ export function simulateBattleTick(state: BattleState, dt: number, prng: PRNG): 
       continue;
     }
 
+    const range = attackRangeOf(actor);
+
     // §3.1.5: taunt — форс цели, пока жив провокатор и не истекла длительность
     if (actor.side === 'foe') {
-      const taunters = s.allies.filter((c) => c.alive && c.tauntLeft > 0);
+      const taunters = s.allies.filter(
+        (c) => c.alive && c.tauntLeft > 0 && Math.abs(c.x - actor.x) <= range,
+      );
       if (taunters.length) {
-        strike(rng, actor, pick(rng, taunters), ownTeam, log, s.floor);
+        const tauntTarget = pick(rng, taunters);
+        if (canStrike(actor, tauntTarget)) {
+          performStrike(rng, actor, tauntTarget, ownTeam, log, s.floor);
+        }
         finishActorTurn(actor, log);
         continue;
       }
     }
 
-    const target = chooseTarget(rng, actor, enemies);
-    if (!target) break;
-    strike(rng, actor, target, ownTeam, log, s.floor);
+    // §3.1.2.1: цель ищется только среди юнитов в дальности — до сближения удара нет,
+    // но остальные юниты продолжают действовать (не break)
+    const target = chooseTarget(rng, actor, enemies, range);
+    if (!target) continue;
+    // §3.1.2.1 шаг 3/4: копилка кулдауна решает, состоится ли удар
+    if (canStrike(actor, target)) {
+      performStrike(rng, actor, target, ownTeam, log, s.floor);
+    }
     finishActorTurn(actor, log);
 
     // §2.3: summon — призыв подмоги (не больше 4 живых врагов, значение = HP);

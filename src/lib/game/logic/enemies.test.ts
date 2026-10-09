@@ -99,7 +99,9 @@ describe('enemies: ranged-враги', () => {
       // В реалтайм-режиме simulateBattleTick — симулируем несколько тиков
       let s = state;
       const prng = mulberry32(seed);
-      for (let i = 0; i < 60; i++) {
+      // §3.1: стороны сближаются ~2–3 с, поэтому бюджет — 10 с (600 тиков),
+      // иначе лучник физически не успевает ни разу выстрелить
+      for (let i = 0; i < 600; i++) {
         s = simulateBattleTick(s, 1000 / 60, prng);
         const hit = s.log.find((e) => e.kind === 'hit' && e.actor === s.foes[0].name);
         if (hit?.target) hits.push(hit.target);
