@@ -40,12 +40,17 @@ test.describe('Battle screen', () => {
       fullPage: false,
     });
 
-    // Проверить, что гномы отрисованы
+    // Проверить, что гномы отрисованы (rig = контейнер: позиция из логики + тело)
     const hasDwarves = await page.evaluate(() => {
       const game = (window as any).__phaserGame;
       if (!game) return false;
       const scene = game.scene.getScene('BattleScene');
-      return scene?.allySprites?.size > 0;
+      const rigs: any[] = scene?.rigs ? Array.from(scene.rigs.values()) : [];
+      const dwarves = rigs.filter((r) => String(r.key).startsWith('dwarf_'));
+      return (
+        dwarves.length > 0 &&
+        dwarves.every((r) => r.body?.texture?.key === r.key && r.container?.visible)
+      );
     });
     expect(hasDwarves).toBe(true);
   });

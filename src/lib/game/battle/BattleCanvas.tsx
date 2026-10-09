@@ -43,8 +43,9 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
 
       const config: any = {
         type: (PhaserModule as any).TYPES?.CANVAS ?? 1,
-        width: 896,
-        height: 504,
+        // §5.2 арена ТЗ: логический размер 1920×1080, координаты боя пишутся напрямую
+        width: 1920,
+        height: 1080,
         parent: container.id,
         // FIX: НЕ передаём scene в config — сцена auto-startится без данных.
         // Добавляем вручную с active: false, затем стартуем с данными.
@@ -98,6 +99,13 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
     }
   }, [battle]);
 
+  // Скорость боя из UI (1×/2×/4×) — темп параллакса берётся отсюда (§5.2.1)
+  useEffect(() => {
+    if (!gameRef.current) return;
+    const scene = gameRef.current.scene.getScene(BATTLE_SCENE_KEY);
+    if (scene?.setSpeed) scene.setSpeed(speed);
+  }, [speed]);
+
   // Обновляем при смене seed/floor — перезапускаем сцену
   useEffect(() => {
     if (!gameRef.current) return;
@@ -113,7 +121,7 @@ export function BattleCanvas({ battle, dwarves, speed }: BattleCanvasProps) {
       ref={containerRef}
       id={`phaser-battle-${battle.seed}`}
       className="relative w-full overflow-hidden rounded-lg"
-      style={{ aspectRatio: '896/504' }}
+      style={{ aspectRatio: '1920/1080' }}
     />
   );
 }

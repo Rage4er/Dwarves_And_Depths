@@ -175,9 +175,16 @@ export function BattleScreen() {
     prngRef.current = mulberry32(battle.seed);
   }, [battle]);
 
-  // реалтайм-цикл: requestAnimationFrame + FIXED_TIMESTEP_MS accumulator
+  // реалтайм-цикл: requestAnimationFrame + FIXED_TIMESTEP_MS accumulator.
+  // ВАЖНО: состояние берётся из curRef, а не из замыкания `cur` — иначе effect
+  // с deps [cur.status] навсегда считает один и тот же тик (бой не шёл вперёд).
+  const curRef = useRef(cur);
   useEffect(() => {
-    if (cur.status !== 'active') return;
+    curRef.current = cur;
+  }, [cur]);
+
+  useEffect(() => {
+    if (curRef.current.status !== 'active') return;
     if (!prngRef.current) return; // prng ещё не инициализирован
     let rafId: number;
     let lastTime = performance.now();
@@ -188,13 +195,15 @@ export function BattleScreen() {
     function frame(now: number) {
       accumulator += now - lastTime;
       lastTime = now;
+      let state = curRef.current;
+      let changed = false;
       let ticks = 0;
-      while (accumulator >= FIXED_TIMESTEP_MS && ticks < maxTicks) {
-        const next = simulateBattleTick(cur, FIXED_TIMESTEP_MS, prng);
-        const d = diffTurns(cur, next);
+      while (accumulator >= FIXED_TIMESTEP_MS && ticks < maxTicks && state.status === 'active') {
+        const next = simulateBattleTick(state, FIXED_TIMESTEP_MS, prng);
+        const d = diffTurns(state, next);
         playSfx(d.sfx);
         const tickRound = Math.floor(next.timeElapsed / FIXED_TIMESTEP_MS);
-        for (const u of [...cur.allies, ...cur.foes]) {
+        for (const u of [...state.allies, ...state.foes]) {
           const n = next.allies.find((x) => x.uid === u.uid) ?? next.foes.find((x) => x.uid === u.uid);
           if (n && u.alive && !n.alive) deathTurnRef.current.set(u.uid, tickRound);
         }
@@ -214,18 +223,21 @@ export function BattleScreen() {
           setPopups((ps) => [...ps, ...withIds]);
           setTimeout(() => setPopups((ps) => ps.filter((x) => !withIds.some((w) => w.id === x.id))), 900);
         }
-        setLogLines((l) => [...l, ...next.log.map((e) => e.text)].slice(-7));
-        setCur(next);
+        if (next.log.length) setLogLines((l) => [...l, ...next.log.map((e) => e.text)].slice(-7));
+        state = next;
+        curRef.current = next;
+        changed = true;
         accumulator -= FIXED_TIMESTEP_MS;
-        ticks++;
-        if (next.status !== 'active') break;
+        ticks += 1;
       }
-      if (cur.status === 'active') {
+      if (changed) setCur(state);
+      if (state.status === 'active') {
         rafId = requestAnimationFrame(frame);
       }
     }
     rafId = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cur.status]);
 
   // сброс подсветки/выпадов

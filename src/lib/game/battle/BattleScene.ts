@@ -1,8 +1,20 @@
-// §3.1 + §5 Phaser-сцена боя
-// НЕ импортирует Phaser на топ-уровне (SSR-safe).
-// Загружается динамически через BattleCanvas.tsx.
+// §3.1 + §5 Phaser-сцена боя. Координаты — прямые из BattleState:
+// арена 1920×1080, линия земли y = FIELD_GROUND_Y (900), спрайт ставится
+// setPosition(x, y) без маппинга. Логика владеет позицией контейнера,
+// анимации (ЭТАП 4) — только телом спрайта.
+// Phaser не импортируется на топ-уровне (SSR-safe), сцена — фабрика.
 
-import type { BattleState } from '@/lib/game/types';
+import { FIELD_GROUND_Y } from '@/lib/game/logic/battle';
+import { ENEMY_TABLE } from '@/lib/game/data/enemies';
+import type { BattleState, Combatant } from '@/lib/game/types';
+import {
+  createUnitRig,
+  dwarfTextureKey,
+  foeTextureKey,
+  queueDwarfTextures,
+  queueFoeTextures,
+  type UnitRig,
+} from './sceneUnits';
 
 export interface BattleSceneData {
   battle: BattleState;
@@ -12,184 +24,121 @@ export interface BattleSceneData {
 
 export const BATTLE_SCENE_KEY = 'BattleScene';
 
+const TILE_W = 880;
+const TILE_H = 480;
+const PLX_FACTORS = [0.12, 0.3, 0.5, 0.7, 0.9];
+// §5.2 скорость «походки» — та же константа, что и CSS-марш в BattleScreen
 const GROUND_SPEED_PX_S = 62 / 0.55;
 
-// Экспортируем фабрику сцены — Phaser загружается только на клиенте
+// Все виды врагов из таблицы данных — чтобы подкрепление и призывы не остались
+// без текстуры (ключи art-сеток покрываются foeKindByName)
+const ALL_FOE_NAMES = Object.values(ENEMY_TABLE).map((e) => e.name);
+
 export function createBattleScene(Phaser: any) {
   const { Scene } = Phaser;
 
   class BattleSceneClass extends Scene {
-    declare data: any;
     private _battleData: BattleSceneData | null = null;
-    private allySprites = new Map<string, any>();
-    private foeSprites = new Map<string, any>();
-    private hpBars = new Map<string, any>();
+    private rigs = new Map<string, UnitRig>();
     private parallaxSprites: any[] = [];
-    private groundGraphics: any = null;
+    private speed = 1;
+    private groundY = FIELD_GROUND_Y;
 
     constructor() {
       super({ key: BATTLE_SCENE_KEY });
     }
 
-    // Phaser: init(data) вызывается ПЕРЕД preload() при scene.start(key, data).
-    // Сохраняем данные в поле — они доступны в preload и create.
+    // Phaser вызывает init(data) ПЕРЕД preload() при scene.start(key, data)
     init(data: BattleSceneData): void {
       this._battleData = data ?? null;
+      this.speed = data?.speed ?? 1;
     }
 
-    // Phaser loader ждёт загрузки ВСЕХ load.image() перед create().
-    // Используем load.image() с base64-URL для синхронной загрузки.
-    preload(): void {
-      const floor = this._battleData?.battle?.floor ?? 1;
+    setSpeed(speed: number): void {
+      this.speed = speed;
+    }
 
-      // Гномы — все доступные + текущий бой
-      const allDwarves = ['d_brom', 'd_grim', 'd_torvin', 'd_bombur', 'd_bifur', 'd_dvalin', 'd_bofur2', 'd_balin', 'd_bifur2', 'd_nori', 'd_bombur2', 'd_dvalin2', 'd_dori', 'd_nori2', 'd_bofur'];
-      for (const id of allDwarves) {
-        registerDwarfTexture(this, id, 'any', `dwarf_${id}`);
-      }
-      // Враги — все доступные + текущий бой
-      const allFoes = ['goblin', 'orc', 'spider', 'skeleton', 'troll', 'demon'];
-      for (const name of allFoes) {
-        registerFoeTexture(this, name, `foe_${name}`);
-      }
-      // Параллакс для текущего этажа — используем load.image() с base64-URL
-      const urls = parallaxTextureUrls(floor);
-      for (const { key, url } of urls) {
-        this.load.image(`${floor}_${key}`, url);
+    preload(): void {
+      const data = this._battleData;
+      queueDwarfTextures(this, data?.dwarves ?? []);
+      queueFoeTextures(this, ALL_FOE_NAMES);
+      const prefix = `${data?.battle?.floor ?? 1}_`;
+      for (const { key, url } of parallaxTextureUrls(data?.battle?.floor ?? 1)) {
+        const full = prefix + key;
+        if (!this.textures.exists(full)) this.load.image(full, url);
       }
     }
 
     create(): void {
-      // FIX: читаем из _battleData (установлен в init()). this.data.values
-      // undefined при авто-старте через config → спрайты не создавались.
       const data = this._battleData;
       if (!data?.battle) return;
-
-      const { battle } = data;
-      const { width, height } = this.scale;
-
+      this.rigs.clear();
+      this.parallaxSprites = [];
       this.cameras.main.setBackgroundColor('#141018');
-      this.createParallax(width, height);
-      this.createUnits(battle, data.dwarves);
+      this.createParallax();
+      this.createUnits(data.battle);
     }
 
     update(_time: number, delta: number): void {
       this.updateParallax(delta);
-      this.updateMarch(delta);
     }
 
-    updateFromBattle(battle: BattleState, _diff: any): void {
-      for (const ally of battle.allies) {
-        const sprite = this.allySprites.get(ally.uid);
-        if (sprite) {
-          sprite.setPosition(ally.x, ally.y);
-          const bar = this.hpBars.get(ally.uid);
-          if (bar) bar.update(ally.hp);
-          if (!ally.alive) {
-            sprite.setAlpha(0.4).setScale(0.6);
-          }
-        }
-      }
-      for (const foe of battle.foes) {
-        const sprite = this.foeSprites.get(foe.uid);
-        if (sprite) {
-          sprite.setPosition(foe.x, foe.y);
-          const bar = this.hpBars.get(foe.uid);
-          if (bar) bar.update(foe.hp);
-          if (!foe.alive) {
-            sprite.setAlpha(0.3).setScale(0.5);
-          }
-        }
+    // Вызывается из BattleCanvas на каждый кадр симуляции: позиция и HP — только
+    // из BattleState (source of truth). Новые uid (подкрепление, призыв) — rig на лету.
+    updateFromBattle(battle: BattleState): void {
+      for (const unit of [...battle.allies, ...battle.foes]) {
+        const rig = this.rigs.get(unit.uid) ?? this.addRig(unit);
+        if (!rig) continue;
+        rig.moveTo(unit.x, unit.y);
+        rig.setHp(unit.hp);
+        rig.body.setAlpha(unit.alive ? 1 : 0.35);
       }
     }
 
-    private createParallax(width: number, height: number): void {
-      const groundY = height - 30;
+    private addRig(unit: Combatant): UnitRig | null {
+      const key = unit.side === 'ally' ? dwarfTextureKey(unit.uid) : foeTextureKey(unit.name);
+      if (!this.textures.exists(key)) return null;
+      const rig = createUnitRig(this, key, unit.x, unit.y, unit.hpMax, unit.hp);
+      this.rigs.set(unit.uid, rig);
+      return rig;
+    }
+
+    private createUnits(battle: BattleState): void {
+      for (const unit of [...battle.allies, ...battle.foes]) this.addRig(unit);
+    }
+
+    private createParallax(): void {
+      const width = this.scale.width;
       const floor = this._battleData?.battle?.floor ?? 1;
       const prefix = `${floor}_`;
-      this.groundGraphics = this.add.graphics();
-      this.groundGraphics.setDepth(50);
-      this.groundGraphics.fillStyle(0x2f2114, 1);
-      this.groundGraphics.fillRect(0, groundY, width, 30);
-      this.groundGraphics.fillStyle(0x453321, 1);
-      this.groundGraphics.fillRect(0, groundY, width, 3);
+
+      const ground = this.add.graphics();
+      ground.setDepth(5);
+      ground.fillStyle(0x2f2114, 1);
+      ground.fillRect(0, this.groundY, width, this.scale.height - this.groundY);
+      ground.fillStyle(0x453321, 1);
+      ground.fillRect(0, this.groundY, width, 4);
 
       for (let i = 0; i < 5; i++) {
-        const tileW = 880;
-        const tileH = 480;
-        const count = Math.ceil(width / tileW) + 2;
-        const alpha = 0.4 + i * 0.12;
-
+        const key = `${prefix}plx_${i}`;
+        if (!this.textures.exists(key)) continue;
+        const count = Math.ceil(width / TILE_W) + 1;
         for (let j = 0; j < count; j++) {
-          const key = `${prefix}plx_${i}`;
-          if (!this.textures.exists(key)) continue;
-          const sprite = this.add.sprite(
-            j * tileW - tileW * 0.5,
-            groundY - tileH * 0.3,
-            key,
-          );
-          sprite.setAlpha(alpha).setDepth(i);
-          (sprite as any)._plxIndex = i;
-          (sprite as any)._plxTileW = tileW;
+          const sprite = this.add.sprite(j * TILE_W, this.groundY - TILE_H / 2, key);
+          sprite.setAlpha(0.4 + i * 0.12).setDepth(i);
+          sprite._plxIndex = i;
+          sprite._wrapW = count * TILE_W;
           this.parallaxSprites.push(sprite);
         }
       }
     }
 
-    private createUnits(battle: BattleState, dwarves: BattleSceneData['dwarves']): void {
-      const { width, height } = this.scale;
-      const groundY = height - 30;
-
-      for (const ally of battle.allies) {
-        // Маппинг: ally.x → правая сторона канваса (600-850)
-        const screenX = 600 + (ally.x / 1000) * 250;
-        const screenY = groundY - 20;
-        const dwarfInfo = dwarves.find((d) => d.id === ally.uid);
-        if (!dwarfInfo) continue;
-        const sprite = createDwarfSprite(
-          this, screenX, screenY,
-          dwarfInfo.id, dwarfInfo.role,
-          `dwarf_${ally.uid}`,
-        );
-        this.allySprites.set(ally.uid, sprite);
-        this.hpBars.set(ally.uid, createHpBar(this, sprite, ally.hpMax, ally.hp));
-      }
-      for (const foe of battle.foes) {
-        // Маппинг: foe.x → левая сторона канваса (50-300)
-        const screenX = 50 + (foe.x / 1000) * 250;
-        const screenY = groundY - 20;
-        const sprite = createFoeSprite(
-          this, screenX, screenY,
-          foe.name, `foe_${foe.uid}`,
-        );
-        this.foeSprites.set(foe.uid, sprite);
-        this.hpBars.set(foe.uid, createHpBar(this, sprite, foe.hpMax, foe.hp));
-      }
-    }
-
     private updateParallax(delta: number): void {
-      const data = (this.data as any).values as BattleSceneData;
-      const speed = data?.speed ?? 2;
-      const dt = (delta / 1000) * speed;
-      const groundPx = GROUND_SPEED_PX_S * dt;
-
+      const drift = (GROUND_SPEED_PX_S * delta / 1000) * this.speed;
       for (const sprite of this.parallaxSprites) {
-        const idx = (sprite as any)._plxIndex ?? 2;
-        const factors = [0.12, 0.3, 0.5, 0.7, 0.9];
-        const sp = factors[idx] ?? 0.5;
-        const tileW = (sprite as any)._plxTileW ?? 880;
-        sprite.x -= groundPx * sp;
-        if (sprite.x < -tileW * 0.5) {
-          sprite.x += tileW * 2;
-        }
-      }
-    }
-
-    private updateMarch(_delta: number): void {
-      const time = (this.time as any).now ?? 0;
-      for (const [uid, sprite] of this.allySprites) {
-        const offset = uid.charCodeAt(0) ?? 0;
-        sprite.y += Math.sin(time * 0.005 + offset) * 0.05;
+        const factor = PLX_FACTORS[sprite._plxIndex ?? 2] ?? 0.5;
+        sprite.x -= drift * factor;
+        if (sprite.x < -TILE_W) sprite.x += sprite._wrapW ?? TILE_W * 3;
       }
     }
   }
@@ -197,77 +146,17 @@ export function createBattleScene(Phaser: any) {
   return BattleSceneClass;
 }
 
-// ── Вспомогательные функции (без Phaser на топ-уровне) ──
+// ── Текстуры параллакса (ЭТАП 3 вынесет это в sceneParallax.ts) ──
 
-import { dwarfGrid } from '@/lib/game/art/dwarves';
-import { foeGrid, foeKindByName } from '@/lib/game/art/enemies';
-import { gridToDataUrl } from '@/lib/game/art/px';
 import { backdropLayerUrl } from '@/lib/game/art/backdrop';
 import { tierForFloor } from '@/lib/game/art/palette';
-
-const SCALE = 4;
-
-function registerDwarfTexture(scene: any, id: string, role: string, key: string): void {
-  const g = dwarfGrid(id, role);
-  const url = gridToDataUrl(g, SCALE, `phaser:d:${id}:${role}`);
-  if (url && !scene.textures.exists(key)) {
-    scene.textures.addBase64(key, url);
-  }
-}
-
-function registerFoeTexture(scene: any, name: string, key: string): void {
-  const kind = foeKindByName(name);
-  const g = foeGrid(kind);
-  const url = gridToDataUrl(g, SCALE, `phaser:f:${kind}`);
-  if (url && !scene.textures.exists(key)) {
-    scene.textures.addBase64(key, url);
-  }
-}
-
-function createDwarfSprite(scene: any, x: number, y: number, id: string, role: string, key?: string): any {
-  const k = key ?? `dwarf_${id}`;
-  registerDwarfTexture(scene, id, role, k);
-  return scene.add.sprite(x, y, k).setScale(4).setOrigin(0.5, 1);
-}
-
-function createFoeSprite(scene: any, x: number, y: number, name: string, key?: string): any {
-  const k = key ?? `foe_${name}_${Math.random().toString(36).slice(2, 6)}`;
-  registerFoeTexture(scene, name, k);
-  return scene.add.sprite(x, y, k).setScale(4).setOrigin(0.5, 1);
-}
-
-function createHpBar(scene: any, parent: any, maxHp: number, currentHp: number): any {
-  const barW = 60;
-  const barH = 5;
-  // Phaser 3.80 Graphics не имеет setOrigin — рисуем с учётом origin 0,0
-  const barY = parent.y - (parent.texture?.height ?? 48) - 14;
-  const g = scene.add.graphics();
-  g.setDepth(30);
-  // origin 0,0 → позиция = левый верхний угол, сдвигаем на -barW/2 для центровки
-  g.setPosition(parent.x - barW / 2, barY);
-  g.fillStyle(0x1a1a1a, 0.8);
-  g.fillRect(0, 0, barW, barH);
-  updateHpBar(g, barW, barH, maxHp, currentHp);
-  return { update: (hp: number) => updateHpBar(g, barW, barH, maxHp, hp) };
-}
-
-function updateHpBar(g: any, barW: number, barH: number, maxHp: number, hp: number): void {
-  g.clear(true);
-  g.fillStyle(0x1a1a1a, 0.8);
-  g.fillRect(-barW / 2, 0, barW, barH);
-  const pct = Math.max(0, hp / maxHp);
-  const color = pct > 0.5 ? 0x44cc44 : pct > 0.25 ? 0xcccc44 : 0xcc4444;
-  g.fillStyle(color, 1);
-  g.fillRect(-barW / 2, 0, barW * pct, barH);
-}
 
 function parallaxTextureUrls(floor: number): Array<{ key: string; url: string }> {
   const tier = tierForFloor(floor);
   const result: Array<{ key: string; url: string }> = [];
   const layerIndices = [0, 1, 2, 3, 1];
   for (let i = 0; i < 5; i++) {
-    const idx = layerIndices[i] ?? 3;
-    const url = backdropLayerUrl(tier, idx, 4);
+    const url = backdropLayerUrl(tier, layerIndices[i] ?? 3, 4);
     if (url) result.push({ key: `plx_${i}`, url });
   }
   return result;
