@@ -139,3 +139,6 @@ pages/_studio/
 # MCP servers
 .playwright-mcp/
 
+# Playwright test results
+test-results/
+

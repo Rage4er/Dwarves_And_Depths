@@ -137,11 +137,17 @@ export function createBattleScene(Phaser: any) {
     }
 
     private createUnits(battle: BattleState, dwarves: BattleSceneData['dwarves']): void {
+      const { width, height } = this.scale;
+      const groundY = height - 30;
+
       for (const ally of battle.allies) {
+        // Маппинг: ally.x → правая сторона канваса (600-850)
+        const screenX = 600 + (ally.x / 1000) * 250;
+        const screenY = groundY - 20;
         const dwarfInfo = dwarves.find((d) => d.id === ally.uid);
         if (!dwarfInfo) continue;
         const sprite = createDwarfSprite(
-          this, ally.x, ally.y,
+          this, screenX, screenY,
           dwarfInfo.id, dwarfInfo.role,
           `dwarf_${ally.uid}`,
         );
@@ -149,8 +155,11 @@ export function createBattleScene(Phaser: any) {
         this.hpBars.set(ally.uid, createHpBar(this, sprite, ally.hpMax, ally.hp));
       }
       for (const foe of battle.foes) {
+        // Маппинг: foe.x → левая сторона канваса (50-300)
+        const screenX = 50 + (foe.x / 1000) * 250;
+        const screenY = groundY - 20;
         const sprite = createFoeSprite(
-          this, foe.x, foe.y,
+          this, screenX, screenY,
           foe.name, `foe_${foe.uid}`,
         );
         this.foeSprites.set(foe.uid, sprite);
@@ -196,7 +205,7 @@ import { gridToDataUrl } from '@/lib/game/art/px';
 import { backdropLayerUrl } from '@/lib/game/art/backdrop';
 import { tierForFloor } from '@/lib/game/art/palette';
 
-const SCALE = 3;
+const SCALE = 4;
 
 function registerDwarfTexture(scene: any, id: string, role: string, key: string): void {
   const g = dwarfGrid(id, role);
@@ -218,25 +227,26 @@ function registerFoeTexture(scene: any, name: string, key: string): void {
 function createDwarfSprite(scene: any, x: number, y: number, id: string, role: string, key?: string): any {
   const k = key ?? `dwarf_${id}`;
   registerDwarfTexture(scene, id, role, k);
-  return scene.add.sprite(x, y, k).setScale(2).setOrigin(0.5, 1);
+  return scene.add.sprite(x, y, k).setScale(4).setOrigin(0.5, 1);
 }
 
 function createFoeSprite(scene: any, x: number, y: number, name: string, key?: string): any {
   const k = key ?? `foe_${name}_${Math.random().toString(36).slice(2, 6)}`;
   registerFoeTexture(scene, name, k);
-  return scene.add.sprite(x, y, k).setScale(2).setOrigin(0.5, 1);
+  return scene.add.sprite(x, y, k).setScale(4).setOrigin(0.5, 1);
 }
 
 function createHpBar(scene: any, parent: any, maxHp: number, currentHp: number): any {
   const barW = 60;
   const barH = 5;
-  // Graphics не имеет setOrigin() — используем только setPosition()
+  // Phaser 3.80 Graphics не имеет setOrigin — рисуем с учётом origin 0,0
   const barY = parent.y - (parent.texture?.height ?? 48) - 14;
   const g = scene.add.graphics();
   g.setDepth(30);
-  g.setPosition(parent.x, barY);
+  // origin 0,0 → позиция = левый верхний угол, сдвигаем на -barW/2 для центровки
+  g.setPosition(parent.x - barW / 2, barY);
   g.fillStyle(0x1a1a1a, 0.8);
-  g.fillRect(-barW / 2, 0, barW, barH);
+  g.fillRect(0, 0, barW, barH);
   updateHpBar(g, barW, barH, maxHp, currentHp);
   return { update: (hp: number) => updateHpBar(g, barW, barH, maxHp, hp) };
 }
