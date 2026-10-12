@@ -15,6 +15,11 @@ import {
   queueFoeTextures,
   type UnitRig,
 } from './sceneUnits';
+import {
+  createParallax,
+  parallaxTextureUrls,
+  scrollParallax,
+} from './sceneParallax';
 
 export interface BattleSceneData {
   battle: BattleState;
@@ -23,12 +28,6 @@ export interface BattleSceneData {
 }
 
 export const BATTLE_SCENE_KEY = 'BattleScene';
-
-const TILE_W = 880;
-const TILE_H = 480;
-const PLX_FACTORS = [0.12, 0.3, 0.5, 0.7, 0.9];
-// §5.2 скорость «походки» — та же константа, что и CSS-марш в BattleScreen
-const GROUND_SPEED_PX_S = 62 / 0.55;
 
 // Все виды врагов из таблицы данных — чтобы подкрепление и призывы не остались
 // без текстуры (ключи art-сеток покрываются foeKindByName)
@@ -108,56 +107,14 @@ export function createBattleScene(Phaser: any) {
     }
 
     private createParallax(): void {
-      const width = this.scale.width;
       const floor = this._battleData?.battle?.floor ?? 1;
-      const prefix = `${floor}_`;
-
-      const ground = this.add.graphics();
-      ground.setDepth(5);
-      ground.fillStyle(0x2f2114, 1);
-      ground.fillRect(0, this.groundY, width, this.scale.height - this.groundY);
-      ground.fillStyle(0x453321, 1);
-      ground.fillRect(0, this.groundY, width, 4);
-
-      for (let i = 0; i < 5; i++) {
-        const key = `${prefix}plx_${i}`;
-        if (!this.textures.exists(key)) continue;
-        const count = Math.ceil(width / TILE_W) + 1;
-        for (let j = 0; j < count; j++) {
-          const sprite = this.add.sprite(j * TILE_W, this.groundY - TILE_H / 2, key);
-          sprite.setAlpha(0.4 + i * 0.12).setDepth(i);
-          sprite._plxIndex = i;
-          sprite._wrapW = count * TILE_W;
-          this.parallaxSprites.push(sprite);
-        }
-      }
+      this.parallaxSprites = createParallax(this, floor, this.groundY);
     }
 
     private updateParallax(delta: number): void {
-      const drift = (GROUND_SPEED_PX_S * delta / 1000) * this.speed;
-      for (const sprite of this.parallaxSprites) {
-        const factor = PLX_FACTORS[sprite._plxIndex ?? 2] ?? 0.5;
-        sprite.x -= drift * factor;
-        if (sprite.x < -TILE_W) sprite.x += sprite._wrapW ?? TILE_W * 3;
-      }
+      scrollParallax(this.parallaxSprites, delta, this.speed);
     }
   }
 
   return BattleSceneClass;
-}
-
-// ── Текстуры параллакса (ЭТАП 3 вынесет это в sceneParallax.ts) ──
-
-import { backdropLayerUrl } from '@/lib/game/art/backdrop';
-import { tierForFloor } from '@/lib/game/art/palette';
-
-function parallaxTextureUrls(floor: number): Array<{ key: string; url: string }> {
-  const tier = tierForFloor(floor);
-  const result: Array<{ key: string; url: string }> = [];
-  const layerIndices = [0, 1, 2, 3, 1];
-  for (let i = 0; i < 5; i++) {
-    const url = backdropLayerUrl(tier, layerIndices[i] ?? 3, 4);
-    if (url) result.push({ key: `plx_${i}`, url });
-  }
-  return result;
 }
