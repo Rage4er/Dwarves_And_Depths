@@ -3,7 +3,7 @@
 
 import type {
   BattleEvent, BattleResult, BattleState, Combatant, Dwarf, Effect, Enemy,
-  Role, StatusEffect,
+  Position, Role, StatusEffect,
 } from '../types';
 import { HP_REGEN_CAP, ENEMY_HP_REGEN_CAP, POSITION_DAMAGE } from '../types';
 import { mulberry32, randInt, type PRNG } from '../rng';
@@ -36,6 +36,22 @@ export const SPAWN_LEFT_X = 100;
 export const SPAWN_RIGHT_X = 1820;
 export const COLUMN_SPACING = 80;
 export const BOUNCE_DISTANCE = 100;
+
+// §3.1.2: передняя линия стоит БЛИЖЕ к точке контакта, чем задняя. Колонка
+// (ранг) присваивается по линии — back → mid → front, — а не по порядку в
+// списке: у союзников x растёт слева направо, у врагов убывает справа налево,
+// поэтому в обе стороны front попадает ближе к противнику (distToOpponent
+// меньше на COLUMN_SPACING). Стабильная сортировка сохраняет порядок внутри линии.
+const POS_LANE_RANK: Record<Position, number> = { back: 0, mid: 1, front: 2 };
+
+function laneRanks(positions: Position[]): number[] {
+  const order = positions
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => POS_LANE_RANK[a.p] - POS_LANE_RANK[b.p] || a.i - b.i);
+  const ranks = new Array<number>(positions.length);
+  order.forEach((o, r) => { ranks[o.i] = r; });
+  return ranks;
+}
 // §3.1: дальность атаки по ролям (px) и базовые кулдауны (мс, v7.1 ×1.5)
 export const ATTACK_RANGE_TANK = 80;
 export const RANGED_ENEMY_RANGE = 260; // v7.0: лучник/шаман стреляют с 260 px
@@ -87,6 +103,7 @@ function totalAura(effects: Effect[], type: Effect['type']): number {
 function toCombatant(
   dwarf: Dwarf,
   index: number,
+  x: number,
   rng: PRNG,
   synAtk: number,
   synDef: number,
@@ -113,7 +130,7 @@ function toCombatant(
     role: dwarf.role,
     iconSeed: index + 1,
     tauntLeft: 0,
-    x: SPAWN_LEFT_X + COLUMN_SPACING * index,
+    x,
     y: FIELD_GROUND_Y,
     attackCooldown: 0,
   };
@@ -156,13 +173,20 @@ export function createBattle(
     partyRoles: dwarves.filter((d) => d.isAlive).map((d) => ({ role: d.role, position: d.position })),
     partyTags: dwarves.filter((d) => d.isAlive).flatMap((d) => d.equipment.flatMap((e) => e.tags)),
   });
-  const allies = dwarves
-    .filter((d) => d.isAlive && d.currentHP > 0)
-    .map((d, i) => toCombatant(d, i, rng,
+  const living = dwarves.filter((d) => d.isAlive && d.currentHP > 0);
+  // колонки по линии: front ближе к врагу, чем mid/back (см. laneRanks)
+  const allyRanks = laneRanks(living.map((d) => d.position));
+  const allies = living.map((d, i) =>
+    toCombatant(
+      d,
+      i,
+      SPAWN_LEFT_X + COLUMN_SPACING * allyRanks[i],
+      rng,
       (syn.atkMultByRole[d.role] ?? 1) * syn.atkMultAll,
       syn.defMultByRole[d.role] ?? 1,
       syn.spdMultByRole[d.role] ?? 1,
-    ));
+    ),
+  );
   const kind = enemyIds.some((id) => ENEMY_TABLE[id as EnemyKind]?.isBoss)
     ? 'boss'
     : enemyIds.some((id) => ENEMY_TABLE[id as EnemyKind]?.isElite)
@@ -173,10 +197,13 @@ export function createBattle(
     : (spawnGroup(mulberry32(seed ^ 0x5f3759df), floor, kind).map((e) => e.id) as EnemyKind[]);
   // босс — соло (его поток — summon, §2.3); обычный бой/элита — передовой отряд + резерв подкреплений
   const front = kind === 'boss' ? groupIds.length : Math.min(WAVE_FRONT, groupIds.length);
-  // передовой отряд — колонками от правого края (иначе спрайты слипаются в одной точке)
-  const foes = groupIds
-    .slice(0, front)
-    .map((id, i) => toFoeCombatant(spawnEnemy(id, floor, i), i, SPAWN_RIGHT_X - COLUMN_SPACING * i));
+  // передовой отряд — колонками от правого края; колонка — по ЛИНИИ спавнутого
+  // врага (front ближе к точке контакта). Дубликаты spawnEnemy сдвигает вглубь
+  // (shiftPosition), поэтому ранги считаем после спавна, не по таблице.
+  const frontSpawned = groupIds.slice(0, front).map((id, i) => spawnEnemy(id, floor, i));
+  const foeRanks = laneRanks(frontSpawned.map((e) => e.position));
+  const foes = frontSpawned.map((e, i) =>
+    toFoeCombatant(e, i, SPAWN_RIGHT_X - COLUMN_SPACING * foeRanks[i]));
   return {
     seed,
     timeElapsed: 0,

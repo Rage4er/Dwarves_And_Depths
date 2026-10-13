@@ -76,7 +76,7 @@ Claude Code, Aider). Содержит краткие правила и ссыл�
    фаза НЕ принята, даже если tsc 0 и тесты pass.
 2. **Консоль браузера — 0 ошибок.** Не «1 Issue», а 0.
 3. **git diff по «принятым» файлам — пусто.** Например, 
-   `battle.ts` после Фазы 1.
+   `battle.ts` после тега `phase-rt-1.1-accepted` (lane-спавн).
 4. **FPS — с логом.** Не «60 FPS», а «60.2 FPS за 5.5 сек, 376 frames».
 5. **Тесты — все pass.** `bun test` 0 fail, `tsc --noEmit` 0 errors.
 6. **Скриншоты приложены.** Не «запустите сами».
@@ -96,7 +96,9 @@ Claude Code, Aider). Содержит краткие правила и ссыл�
 - **`simulateBattleTick`** — источник истины для боя.
 - **Phaser-сцена вызывает `simulateBattleTick` в `update()`.**
 - **React HUD** — только отображение через `game.events`.
-- **`battle.ts`** (Фаза 1) — **не трогать**. `git diff` должен быть пустым.
+- **`battle.ts`** (Фаза 1) — **не трогать**, КРОМЕ lane-спавна (порядок
+  колонн: front ближе к врагу — уточнение формации §3.1.1, см. `defects.md`).
+  Такая правка — только отдельным коммитом и тегом (`phase-rt-1.1-accepted`).
 
 ---
 
@@ -106,7 +108,8 @@ Claude Code, Aider). Содержит краткие правила и ссыл�
 - Не удалять тесты.
 - Не упрощать DoD.
 - Не объявлять приёмку без скриншотов.
-- Не трогать `battle.ts` (Фаза 1 принята).
+- Не трогать `battle.ts` (Фаза 1 принята), кроме lane-спавна — только
+  отдельным коммитом и тегом.
 - Не выполнять §0.2 bootstrap.
 - Не использовать raw Canvas 2D вместо Phaser.
 - Не переписывать UI на Phaser.
@@ -139,6 +142,21 @@ Claude Code, Aider). Содержит краткие правила и ссыл�
 
 ---
 
+## 🌐 Dev-сервер и basePath
+
+`next.config.mjs` содержит **осознанный** `basePath: '/Dwarves_And_Depths'`:
+проект разворачивается на GitHub Pages в подпапке (`output: 'export'`,
+`assetPrefix: '/Dwarves_And_Depths/'`). Это **не** случайность — менять нельзя.
+
+**URL для разработки:**
+- `http://localhost:3000/` → **404** (basePath перехватывает все роуты)
+- `http://localhost:3000/Dwarves_And_Depths/` → **200** ✅
+
+Playwright (`playwright.config.ts`) уже настроен:
+`baseURL: 'http://localhost:3000/Dwarves_And_Depths/'`.
+
+---
+
 ## 🎯 Текущая задача
 
 **RT Фаза 2 — визуал боя на Phaser 3.**
@@ -155,5 +173,5 @@ Claude Code, Aider). Содержит краткие правила и ссыл�
 - [ ] Консоль без ошибок (0 Issue).
 - [ ] FPS ≥ 60 desktop / ≥ 30 mobile.
 - [ ] `tsc --noEmit` 0 errors, `bun test` pass.
-- [ ] `git diff battle.ts` — пусто.
+- [ ] `git diff battle.ts` — пусто (кроме lane-спавна `phase-rt-1.1-accepted`).
 - [ ] `git tag phase-rt-2-accepted`.
