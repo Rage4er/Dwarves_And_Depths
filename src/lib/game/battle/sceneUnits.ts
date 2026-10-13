@@ -52,12 +52,14 @@ export function queueFoeTextures(scene: any, names: string[]): void {
 }
 
 export interface UnitRig {
-  /** ключ текстуры тела — `dwarf_<id>` / `foe_<kind>` */
   key: string;
   container: any;
   body: any;
+  /** занят твином (рывок) — чтобы не наслаивать анимации на одно тело */
+  busy: boolean;
   moveTo(x: number, y: number): void;
   setHp(hp: number): void;
+  setBarVisible(visible: boolean): void;
 }
 
 // origin (0.5, 1) → точка опоры в ногах: координата y из логики = линия земли,
@@ -78,8 +80,8 @@ function drawBar(g: any, bodyH: number, maxHp: number, hp: number): void {
   g.strokeRect(-BAR_W / 2, y, BAR_W, BAR_H);
 }
 
-// keyMissing: текстура не успела загрузиться → спрайт всё равно создаём
-// (Phaser покажет пустоту), но координаты и HP-бар работают.
+// HP-бар — дочерний Graphics внутри контейнера: центрируется локальным
+// смещением -BAR_W/2 и автоматически следует за юнитом (logika двигает контейнер).
 export function createUnitRig(
   scene: any,
   key: string,
@@ -94,11 +96,14 @@ export function createUnitRig(
   drawBar(bar, bodyH, maxHp, hp);
   const container = scene.add.container(x, y, [body, bar]);
   container.setDepth(20);
-  return {
+  const rig: UnitRig = {
     key,
     container,
     body,
+    busy: false,
     moveTo: (nx: number, ny: number) => container.setPosition(nx, ny),
     setHp: (next: number) => drawBar(bar, bodyH, maxHp, next),
+    setBarVisible: (visible: boolean) => bar.setVisible(visible),
   };
+  return rig;
 }

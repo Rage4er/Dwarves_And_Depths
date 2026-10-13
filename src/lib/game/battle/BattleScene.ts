@@ -1,8 +1,12 @@
-// §3.1 + §5 Phaser-сцена боя. Координаты — прямые из BattleState:
-// арена 1920×1080, линия земли y = FIELD_GROUND_Y (900), спрайт ставится
-// setPosition(x, y) без маппинга. Логика владеет позицией контейнера,
-// анимации (ЭТАП 4) — только телом спрайта.
-// Phaser не импортируется на топ-уровне (SSR-safe), сцена — фабрика.
+// §3.1 + §5 Phaser-сцена боя.
+//
+// Координаты — прямые из BattleState: арена 1920×1080, земля y = FIELD_GROUND_Y,
+// юнит ставится setPosition(x, y) без маппинга «1000 → 250 px».
+// Логика владеет позицией rig-контейнера; анимации (§5.3) трогают только
+// дочернее тело, поэтому твин не может разойтись с симуляцией (§0.8 п.3).
+//
+// Phaser не импортируется на топ-уровне (SSR-safe): сцена — фабрика, её создаёт
+// BattleCanvas после динамической загрузки Phaser.
 
 import { FIELD_GROUND_Y } from '@/lib/game/logic/battle';
 import { ENEMY_TABLE } from '@/lib/game/data/enemies';
@@ -20,6 +24,7 @@ import {
   parallaxTextureUrls,
   scrollParallax,
 } from './sceneParallax';
+import { spawnPopup, spawnSpark, tweenDeath, tweenHit, tweenLunge } from './sceneFx';
 
 export interface BattleSceneData {
   battle: BattleState;
@@ -29,9 +34,13 @@ export interface BattleSceneData {
 
 export const BATTLE_SCENE_KEY = 'BattleScene';
 
-// Все виды врагов из таблицы данных — чтобы подкрепление и призывы не остались
-// без текстуры (ключи art-сеток покрываются foeKindByName)
+// Все виды врагов: подкрепление и призывы не должны оставаться без текстуры
 const ALL_FOE_NAMES = Object.values(ENEMY_TABLE).map((e) => e.name);
+
+const COLOR_DAMAGE = 0xff5252;
+const COLOR_HEAL = 0x69f0ae;
+const COLOR_SPARK_ALLY = 0xff5252;
+const COLOR_SPARK_FOE = 0xffd54f;
 
 export function createBattleScene(Phaser: any) {
   const { Scene } = Phaser;
@@ -39,7 +48,9 @@ export function createBattleScene(Phaser: any) {
   class BattleSceneClass extends Scene {
     private _battleData: BattleSceneData | null = null;
     private rigs = new Map<string, UnitRig>();
-    private parallaxSprites: any[] = [];
+    private layers: any[] = [];
+    private prevHp = new Map<string, number>();
+    private deadFired = new Set<string>();
     private speed = 1;
     private groundY = FIELD_GROUND_Y;
 
@@ -58,12 +69,11 @@ export function createBattleScene(Phaser: any) {
     }
 
     preload(): void {
-      const data = this._battleData;
-      queueDwarfTextures(this, data?.dwarves ?? []);
+      queueDwarfTextures(this, this._battleData?.dwarves ?? []);
       queueFoeTextures(this, ALL_FOE_NAMES);
-      const prefix = `${data?.battle?.floor ?? 1}_`;
-      for (const { key, url } of parallaxTextureUrls(data?.battle?.floor ?? 1)) {
-        const full = prefix + key;
+      const floor = this._battleData?.battle?.floor ?? 1;
+      for (const { key, url } of parallaxTextureUrls(floor)) {
+        const full = `${floor}_${key}`;
         if (!this.textures.exists(full)) this.load.image(full, url);
       }
     }
@@ -72,25 +82,62 @@ export function createBattleScene(Phaser: any) {
       const data = this._battleData;
       if (!data?.battle) return;
       this.rigs.clear();
-      this.parallaxSprites = [];
+      this.prevHp.clear();
+      this.deadFired.clear();
+      // рестарт сцены уничтожает display-объекты Phaser — список попапов обнуляем,
+      // иначе cleanup будет обращаться к уже удалённым текстурам
+      (this as any)._popups = [];
       this.cameras.main.setBackgroundColor('#141018');
-      this.createParallax();
-      this.createUnits(data.battle);
+      this.layers = createParallax(this, data.battle.floor, this.groundY);
+      for (const unit of [...data.battle.allies, ...data.battle.foes]) this.addRig(unit);
     }
 
     update(_time: number, delta: number): void {
-      this.updateParallax(delta);
+      scrollParallax(this.layers, delta, this.speed);
     }
 
-    // Вызывается из BattleCanvas на каждый кадр симуляции: позиция и HP — только
-    // из BattleState (source of truth). Новые uid (подкрепление, призыв) — rig на лету.
+    // Единственная точка входа из React: позиция и HP берутся из BattleState
+    // (source of truth), эффекты — из дельты относительно прошлого кадра.
     updateFromBattle(battle: BattleState): void {
       for (const unit of [...battle.allies, ...battle.foes]) {
         const rig = this.rigs.get(unit.uid) ?? this.addRig(unit);
         if (!rig) continue;
         rig.moveTo(unit.x, unit.y);
         rig.setHp(unit.hp);
-        rig.body.setAlpha(unit.alive ? 1 : 0.35);
+        this.applyUnitDiff(unit, rig);
+      }
+      this.applyLunges(battle);
+    }
+
+    private applyUnitDiff(unit: Combatant, rig: UnitRig): void {
+      const was = this.prevHp.get(unit.uid);
+      this.prevHp.set(unit.uid, unit.hp);
+      if (was === undefined) return;
+      // Гнома бьёт враг справа → отбрасывает влево; враг отлетает вправо
+      const dir = unit.side === 'ally' ? -1 : 1;
+      const delta = unit.hp - was;
+      if (delta < 0) {
+        tweenHit(this, rig, dir);
+        spawnSpark(this, unit.x, unit.y - 120, unit.side === 'ally' ? COLOR_SPARK_ALLY : COLOR_SPARK_FOE);
+        spawnPopup(this, unit.x, unit.y - 230, String(delta), COLOR_DAMAGE);
+      } else if (delta > 0) {
+        spawnPopup(this, unit.x, unit.y - 230, '+' + delta, COLOR_HEAL);
+      }
+      if (!unit.alive && !this.deadFired.has(unit.uid)) {
+        this.deadFired.add(unit.uid);
+        tweenDeath(this, rig, dir);
+      }
+    }
+
+    // Рывок атакующего: имя актёра берём из лог-событий тика (§5.3),
+    // остальное уже покрыто дельтой HP
+    private applyLunges(battle: BattleState): void {
+      for (const e of battle.log) {
+        if (e.kind !== 'hit' || !e.actor) continue;
+        const actor = [...battle.allies, ...battle.foes].find((c) => c.name === e.actor);
+        if (!actor) continue;
+        const rig = this.rigs.get(actor.uid);
+        if (rig) tweenLunge(this, rig, actor.side === 'ally' ? 1 : -1);
       }
     }
 
@@ -99,20 +146,8 @@ export function createBattleScene(Phaser: any) {
       if (!this.textures.exists(key)) return null;
       const rig = createUnitRig(this, key, unit.x, unit.y, unit.hpMax, unit.hp);
       this.rigs.set(unit.uid, rig);
+      this.prevHp.set(unit.uid, unit.hp);
       return rig;
-    }
-
-    private createUnits(battle: BattleState): void {
-      for (const unit of [...battle.allies, ...battle.foes]) this.addRig(unit);
-    }
-
-    private createParallax(): void {
-      const floor = this._battleData?.battle?.floor ?? 1;
-      this.parallaxSprites = createParallax(this, floor, this.groundY);
-    }
-
-    private updateParallax(delta: number): void {
-      scrollParallax(this.parallaxSprites, delta, this.speed);
     }
   }
 
